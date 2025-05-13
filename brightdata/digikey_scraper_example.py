@@ -25,11 +25,27 @@ class DigikeyByUrlScraper(BrightdataBaseSpecializedScraper):
         # Otherwise, just call the base method:
         return super().test_connection()
 
+    # def trigger(self, target: str) -> str:
+    #     # Optionally ensure it's a valid Digi-Key URL:
+    #     if "digikey" not in target.lower():
+    #         raise ValueError("Target does not appear to be a valid Digi-Key URL.")
+    #     return super().trigger(target)
+    
     def trigger(self, target: str) -> str:
         # Optionally ensure it's a valid Digi-Key URL:
-        if "digikey" not in target.lower():
-            raise ValueError("Target does not appear to be a valid Digi-Key URL.")
-        return super().trigger(target)
+        
+        if self.is_link(target):
+            if "digikey" not in target.lower():
+                raise ValueError("Target does not appear to be a valid Digi-Key URL.")
+            return super().trigger(target)
+
+        elif isinstance(target)== str:
+            generated_link= self.make_link(target)
+            return super().trigger(generated_link)
+    
+    def make_link(self, keyword ):
+        digikey_base_url= ""
+        return digikey_base_url+keyword
 
     def get_data(self, snapshot_id: str):
         # Optionally, parse or transform the final result specifically for Digi-Key

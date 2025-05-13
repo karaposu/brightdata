@@ -5,6 +5,7 @@ from typing import Any, Optional
 from dotenv import load_dotenv
 import os
 from typing import List
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class BrightdataBaseSpecializedScraper:
           https://api.brightdata.com/datasets/v3/progress
       - result_base_url: 
           https://api.brightdata.com/datasets/v3/snapshot
-
+    
     Usage (high-level):
 
       1) Instantiate with credentials:
@@ -85,12 +86,12 @@ class BrightdataBaseSpecializedScraper:
         self.config = kwargs
 
         logger.debug("Initialized BrightdataBaseSpecializedScraper")
-
+    
     def test_connection(self):
         """
         Makes a HEAD (or GET) request to either self.test_link or self.trigger_url.
         Returns a tuple: (boolean success, string error_message or None).
-
+       
         Usage:
             ok, err = self.test_connection()
             if not ok:
@@ -128,7 +129,7 @@ class BrightdataBaseSpecializedScraper:
             "Authorization": f"Bearer {self.bearer_token}",
             "Content-Type": "application/json"  # Ensure JSON content type
         }
-
+        
         try:
             # Using json=payload is equivalent to data=json.dumps(payload),
             # but automatically adds the correct headers (which we set anyway).
