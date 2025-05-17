@@ -1,29 +1,113 @@
 
-# Brightdata Utils
+brightdata 
+==========
 
-Python wrapper for Brightdata APIs.  Brightdata provides various data scraping APIs and once triggered they scrape the webpages with their custom scraper and gives you the data. 
+Unofficial **Python helper-SDK** for Bright Data “Ready-Made Datasets”.
+Focuses on *simplicity* rather than covering every API knob.
 
-From their Website :
-"Dedicated endpoints for extracting fresh, structured web data from over 120 popular domains. 100% compliant and ethical scraping."
+``pip install brightdata``  →  one import away from grabbing JSON rows
+from Amazon, Digi-Key, Mouser, LinkedIn, Tiktok, Youtube, Instagram and a lot more 
 
-LinkedIn people profiles, 
-Amazon products
-Instagram - Profiles
-Linkedin job listings information
-TikTok - Profiles
-Youtube
-Airbnb
+(Check https://brightdata.com/cp/scrapers/browse?category=all&id=hl_1cdf8003 
+for all scrapers )
 
-and many more. 
+---
 
-To use the webunlocker you must have a brightdata account and use it to create a webunlocker scraper ( a.k.a zone) in admin panel and get the below credentials.
+## 1 Quick start
 
-BRIGHTDATA_WEBUNCLOKCER_BEARER
-BRIGHTDATA_WEBUNCLOKCER_APP_ZONE_STRING
+```bash
+export BRIGHTDATA_TOKEN=pk_live_…   # your bearer token
+pip install brightdata
+````
 
-once you have these credentials simply put them in .env file 
+```python
+from brightdata.ready_scrapers.amazon import AmazonScraper
+from brightdata.utils.poll import poll_until_ready   # blocking helper
 
-you can create custom scrapers (because not all scrape APIs are following similar pattern)
+scraper = AmazonScraper(bearer_token=os.environ["BRIGHTDATA_TOKEN"])
 
-via 
-from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+snap = scraper.collect_by_url([
+    "https://www.amazon.com/dp/B0CRMZHDG8",
+    "https://www.amazon.com/dp/B07PZF3QS3",
+])
+
+rows = poll_until_ready(scraper, snap).data    # list[dict]
+print(rows[0]["title"])
+```
+
+---
+
+## 2 What’s included
+
+| Dataset family           | Ready-made class  | Implemented methods                                                                                                             |
+| ------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Amazon products / search | `AmazonScraper`   | `collect_by_url`, `discover_by_keyword`, `discover_by_category`, `search_products`                                              |
+| Digi-Key parts           | `DigiKeyScraper`  | `collect_by_url`, `discover_by_category`                                                                                        |
+| Mouser parts             | `MouserScraper`   | `collect_by_url`                                                                                                                |
+| LinkedIn                 | `LinkedInScraper` | `collect_people_by_url`, `discover_people_by_name`, `collect_company_by_url`, `collect_jobs_by_url`, `discover_jobs_by_keyword` |
+
+Each call **returns a `snapshot_id` string** (sync\_mode = async).
+Use one of the helpers to fetch the final data:
+
+* `brightdata.utils.poll.poll_until_ready()` – blocking, linear
+* `brightdata.utils.async_poll.wait_ready()` – single coroutine
+* `brightdata.utils.async_poll.monitor_snapshots()` – fan-out hundreds using `asyncio` + `aiohttp`
+
+---
+
+## 3 Async example (100 keyword jobs)
+
+```python
+import asyncio
+from brightdata.ready_scrapers.amazon import AmazonScraper
+from brightdata.utils.async_poll import monitor_snapshots
+
+scraper   = AmazonScraper(bearer_token=TOKEN)
+snapshots = [scraper.discover_by_keyword([kw]) for kw in ["dog food", "ssd", …]]
+
+results = asyncio.run(monitor_snapshots(scraper, snapshots, poll=15))
+ready   = [r.data for r in results if r.status == "ready"]
+```
+
+Memory footprint: few kB per job → thousands of parallel polls on a single VM.
+
+---
+
+## 4 Mini-micro-service pattern
+
+Need fire-and-forget?
+`brightdata.utils.thread_poll.PollWorker` (one line to start) runs in a
+daemon thread, writes the JSON to disk or fires a callback and never blocks
+your main code.
+
+---
+
+## 5 Folder layout
+
+```
+brightdata/
+├── base_specialized_scraper.py   ← shared HTTP logic
+├── utils/
+│   ├── poll.py                   ← blocking polling helper
+│   └── async_poll.py             ← asyncio helpers
+└── ready_scrapers/
+    ├── amazon/
+    ├── digikey/
+    ├── mouser/
+    └── linkedin/
+```
+
+---
+
+## 6 Contributing
+
+1. Fork, create a feature branch.
+2. Keep the surface minimal – one scraper class per dataset family.
+3. Run the smoke-tests under `ready_scrapers/<dataset>/tests.py`.
+4. Open PR.
+
+---
+
+
+
+
