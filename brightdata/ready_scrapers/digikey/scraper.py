@@ -26,12 +26,14 @@ Usage
 
 from typing import Any, Dict, List, Sequence, Optional
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+from brightdata.registry import register
 
 # default dataset-IDs taken from your examples
 _DATASET_COLLECT_BY_URL       = "gd_lj74waf72416ro0k65"
 _DATASET_DISCOVER_BY_CATEGORY = "gd_lj74waf72416ro0k65"   # same dataset, diff params
 
 
+@register("digikey")              # ← one word, no TLD juggling
 class DigikeyScraper(BrightdataBaseSpecializedScraper):
     """Ready-made Bright Data client for Digi-Key product data."""
 

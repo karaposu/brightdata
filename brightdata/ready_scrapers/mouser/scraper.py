@@ -23,11 +23,13 @@ Example
 
 from typing import Any, Dict, List, Sequence
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+from brightdata.registry import register
 
 # dataset taken from the request you provided
 _DATASET_COLLECT_BY_URL = "gd_lfjty8942ogxzhmp8t"
 
 
+@register("mouser")        
 class MouserScraper(BrightdataBaseSpecializedScraper):
     """
     Ready-made Bright Data client for Mouser product data.

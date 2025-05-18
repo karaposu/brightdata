@@ -5,11 +5,12 @@ never pass dataset_id explicitly.
 """
 from typing import Any, Dict, List, Optional, Sequence
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+from brightdata.registry import register
 
 
 # to run python -m brightdata.ready_scrapers.amazon.tests
 
-
+@register("amazon")              # ← one word, no TLD juggling
 class AmazonScraper(BrightdataBaseSpecializedScraper):
     # ------------------------------------------------------------------ #
     # Bright Data dataset-ids (static, per console) – edit only here
