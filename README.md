@@ -77,7 +77,7 @@ returns the scraper class that declared itself responsible for that domain.
 With that you can all you have to do is feed the url
 
 ```python
-from brightdata.auto import trigger_scrape_url, scrape_url
+from brightdata import trigger_scrape_url, scrape_url
 
 # or trigger+wait and get the actual data
 rows = scrape_url("https://www.amazon.com/dp/B0CRMZHDG8", bearer_token=TOKEN)
@@ -100,7 +100,7 @@ it also works for sites which expose several distinct “collect” datasets.
 
 ```python
 
-from brightdata.auto import scrape_url
+from brightdata import scrape_url
 
 links_with_different_types = [
     "https://www.linkedin.com/in/enes-kuzucu/",

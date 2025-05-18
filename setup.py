@@ -5,7 +5,7 @@ import os
 
 setup(
     name='brightdata',  # Package name
-    version='0.0.7',  # Version of your package
+    version='0.0.8',  # Version of your package
     author='Enes Kuzucu',  # Your name
     
     description='A module to use brightdata utils ',  # Short description
