@@ -2,8 +2,8 @@
 brightdata 
 ==========
 
-Unofficial **Python helper-SDK** for Bright Data “Ready-Made Datasets”.
-Focuses on *simplicity* rather than covering every API knob.
+Unofficial **Python helper-SDK** for BrightData "Custom Web Scrapers"
+
 
 ``pip install brightdata``  →  one import away from grabbing JSON rows
 from Amazon, Digi-Key, Mouser, LinkedIn, Tiktok, Youtube, Instagram and a lot more 
@@ -20,10 +20,18 @@ pip install brightdata
 ````
 
 ```python
+import os
+from dotenv import load_dotenv
 from brightdata.ready_scrapers.amazon import AmazonScraper
 from brightdata.utils.poll import poll_until_ready   # blocking helper
+import sys
 
-scraper = AmazonScraper(bearer_token=os.environ["BRIGHTDATA_TOKEN"])
+load_dotenv()
+TOKEN = os.getenv("BRIGHTDATA_TOKEN")
+if not TOKEN:
+    sys.exit("Set BRIGHTDATA_TOKEN environment variable first")
+
+scraper = AmazonScraper(bearer_token=TOKEN)
 
 snap = scraper.collect_by_url([
     "https://www.amazon.com/dp/B0CRMZHDG8",
