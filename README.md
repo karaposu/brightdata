@@ -1,21 +1,33 @@
 
+![PyTorch Logo](https://github.com/karaposu/brightdata/raw/main/docs/source/_static/img/pytorch-logo-dark.png)
+
 brightdata 
 ==========
+
+``pip install brightdata``  →  one import away from grabbing JSON rows
+from Amazon, Digi-Key, Mouser, LinkedIn, Tiktok, Youtube, Instagram and a lot more in a production grade way
+
+(Scroll down in https://brightdata.com/products/web-scraper to see all custom scrapers )
 
 Unofficial **Python helper-SDK** for BrightData which wraps Bright Data’s **Dataset API** with small, ready-made
 “scraper” classes
 
-If all you want to do is **fetch the data that belongs to a URL** you don’t
+
+
+---
+
+## Features:
+
+1. If all you want to do is **fetch the data that belongs to a URL** you don’t
 even need to know which scraper to instantiate—the toolkit can pick the right
 one automatically. 
 
+2. 
 
-``pip install brightdata``  →  one import away from grabbing JSON rows
-from Amazon, Digi-Key, Mouser, LinkedIn, Tiktok, Youtube, Instagram and a lot more 
 
-(Scroll down in https://brightdata.com/products/web-scraper to see all custom scrapers )
 
----
+
+
 
 ## 1 Quick start
 
