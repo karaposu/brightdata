@@ -8,8 +8,7 @@ Focuses on *simplicity* rather than covering every API knob.
 ``pip install brightdata``  →  one import away from grabbing JSON rows
 from Amazon, Digi-Key, Mouser, LinkedIn, Tiktok, Youtube, Instagram and a lot more 
 
-(Check https://brightdata.com/cp/scrapers/browse?category=all&id=hl_1cdf8003 
-for all scrapers )
+(Scroll down in https://brightdata.com/products/web-scraper to see all custom scrapers )
 
 ---
 
