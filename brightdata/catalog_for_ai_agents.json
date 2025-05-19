@@ -1,0 +1,461 @@
+{
+  "amazon": {
+    "title": "AmazonScraper",
+    "desc": "Ready-made helper around Bright Data\u2019s Amazon datasets. Automatically picks the right dataset-id for every endpoint.\n",
+    "endpoints": {
+      "collect_by_url": {
+        "desc": "Scrape one or many Amazon product pages (ASIN detail).",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Product detail-page URLs."
+          },
+          "zipcodes": {
+            "type": "list[str]",
+            "desc": "Postal codes aligned with URLs; empty string to skip."
+          }
+        },
+        "returns": {
+          "type": "list[dict] | str",
+          "desc": "Immediate rows (sync) or snapshot_id (async)."
+        },
+        "example": "snap = scraper.collect_by_url(\n  [\"https://www.amazon.com/dp/B0CRMZHDG8\"], zipcodes=[\"94107\"]\n)"
+      },
+      "discover_by_category": {
+        "desc": "Collect new ASINs from category/browse URLs.",
+        "params": {
+          "category_urls": {
+            "type": "list[str]",
+            "desc": "Browse-node URLs."
+          },
+          "sorts": {
+            "type": "list[str]",
+            "desc": "Sort options aligned with URLs."
+          },
+          "zipcodes": {
+            "type": "list[str]",
+            "desc": "Postal codes aligned with URLs."
+          }
+        },
+        "returns": {
+          "type": "list[dict] | str",
+          "desc": "Immediate rows or snapshot_id."
+        },
+        "raises": {
+          "ValueError": {
+            "desc": "If the three input lists\u2019 lengths don\u2019t match."
+          }
+        },
+        "example": "snap = scraper.discover_by_category(\n  [\"https://www.amazon.com/s?i=electronics\"],\n  sorts=[\"Best Sellers\"],\n  zipcodes=[\"94107\"]\n)"
+      },
+      "discover_by_keyword": {
+        "desc": "Run an Amazon keyword search and return new product links.",
+        "params": {
+          "keywords": {
+            "type": "list[str]",
+            "desc": "Search terms (one job per keyword)."
+          }
+        },
+        "returns": {
+          "type": "list[dict] | str",
+          "desc": "Immediate rows or snapshot_id."
+        },
+        "example": "snap = scraper.discover_by_keyword([\"laptop\", \"headphones\"])"
+      },
+      "search_products": {
+        "desc": "Crawl Amazon SERPs across multiple storefronts.",
+        "params": {
+          "keywords": {
+            "type": "list[str]",
+            "desc": "Search strings."
+          },
+          "domains": {
+            "type": "list[str]",
+            "desc": "Marketplace domains aligned with keywords."
+          },
+          "pages": {
+            "type": "list[int]",
+            "desc": "Number of pages per keyword."
+          }
+        },
+        "returns": {
+          "type": "list[dict] | str",
+          "desc": "Rows (sync) or snapshot_id (async)."
+        },
+        "raises": {
+          "ValueError": {
+            "desc": "If keywords, domains, and pages lengths differ."
+          }
+        },
+        "example": "snap = scraper.search_products(\n  [\"laptop\"], domains=[\"https://www.amazon.com\"], pages=[2]\n)"
+      }
+    }
+  },
+  "digikey": {
+    "title": "DigikeyScraper",
+    "desc": "High-level wrapper around Bright Data\u2019s Digi-Key datasets. A single dataset-id is used for both collect and discover.\n",
+    "endpoints": {
+      "collect_by_url": {
+        "desc": "Scrape specific Digi-Key product pages.",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Full product-detail URLs."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to retrieve `list[dict]` rows."
+        },
+        "example": "snap = scraper.collect_by_url([\n  \"https://www.digikey.com/en/products/detail/STMicroelectronics/STM32F407VGT6/2747117\",\n  \"https://www.digikey.com/en/products/detail/Texas-Instruments/TPS7A4901PWP/8280491\"\n])"
+      },
+      "discover_by_category": {
+        "desc": "Crawl Digi-Key category pages and return links to *new* parts (Bright Data\u2019s `discover_new` semantics).\n",
+        "params": {
+          "category_urls": {
+            "type": "list[str]",
+            "desc": "Full category-page URLs."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to retrieve `list[dict]` rows."
+        },
+        "example": "snap = scraper.discover_by_category([\n  \"https://www.digikey.com/en/products/filter/resistors/general-purpose-fixed/04\"\n])"
+      }
+    }
+  },
+  "instagram": {
+    "title": "InstagramScraper",
+    "desc": "High-level client for Bright Data\u2019s Instagram endpoints. Each method returns immediately with a snapshot-id.\n",
+    "endpoints": {
+      "collect_comments_by_url": {
+        "desc": "Retrieve all comments for the given post or reel URLs.",
+        "params": {
+          "post_urls": {
+            "type": "list[str]",
+            "desc": "URLs of posts or reels."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to get list[dict]."
+        },
+        "example": "snap = scraper.collect_comments_by_url([\n  \"https://www.instagram.com/p/Cuf4s0MNqNr\"\n])"
+      },
+      "collect_posts_by_url": {
+        "desc": "Scrape individual Instagram posts (images or reels).",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Post URLs starting with /p/ or /reel/."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to get list[dict]."
+        },
+        "example": "snap = scraper.collect_posts_by_url([\n  \"https://www.instagram.com/p/Cuf4s0MNqNr\",\n  \"https://www.instagram.com/reel/Cuvy6JbtyQ6\"\n])"
+      },
+      "collect_profiles_by_url": {
+        "desc": "Scrape Instagram profile pages (followers, bio, counters).",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Full profile URLs."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to get list[dict]."
+        },
+        "example": "snap = scraper.collect_profiles_by_url([\n  \"https://www.instagram.com/cats_of_world_/\"\n])"
+      },
+      "discover_posts_by_url": {
+        "desc": "Crawl multiple posts from profile / hashtag / tagged feeds.",
+        "params": {
+          "queries": {
+            "type": "list[dict]",
+            "desc": "Each dict forwarded verbatim to Bright Data.  \nKeys:\n  - url (str, required): profile/hashtag/tagged URL  \n  - num_of_posts (int): max posts  \n  - start_date (MM-DD-YYYY)  \n  - end_date (MM-DD-YYYY)  \n  - post_type (\"Post\"|\"Reel\"|\"\")  \n  - posts_to_not_include (list[str]): IDs  \n"
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to get list[dict]."
+        },
+        "example": "snap = scraper.discover_posts_by_url([{\n  \"url\":\"https://www.instagram.com/meta/\",\n  \"num_of_posts\":10,\n  \"post_type\":\"Reel\",\n  \"start_date\":\"01-01-2025\",\n  \"end_date\":\"03-01-2025\"\n}])"
+      },
+      "discover_reels_all_by_url": {
+        "desc": "Crawl the complete reel history of each account.",
+        "params": {
+          "queries": {
+            "type": "list[dict]",
+            "desc": "Same fields as discover_reels_by_url, but retrieves *all* reels.\n  - url (str)  \n  - num_of_posts (int; leave empty for all)  \n  - start_date, end_date (MM-DD-YYYY)\n"
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to get list[dict]."
+        },
+        "example": "snap = scraper.discover_reels_all_by_url([{\n  \"url\":\"https://www.instagram.com/billieeilish\",\n  \"num_of_posts\":20\n}])"
+      },
+      "discover_reels_by_url": {
+        "desc": "Fetch recent reels for multiple accounts.",
+        "params": {
+          "queries": {
+            "type": "list[dict]",
+            "desc": "Same structure as discover_posts_by_url, but only reels:\n  - url (str): profile link  \n  - num_of_posts (int)  \n  - start_date (MM-DD-YYYY)  \n  - end_date (MM-DD-YYYY)\n"
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to get list[dict]."
+        },
+        "example": "snap = scraper.discover_reels_by_url([{\n  \"url\":\"https://www.instagram.com/espn\",\n  \"num_of_posts\":5,\n  \"start_date\":\"\",\"end_date\":\"\"\n}])"
+      }
+    }
+  },
+  "linkedin": {
+    "title": "LinkedInScraper",
+    "desc": "Unified LinkedIn scraper \u2013 wraps the people, company and job Bright-Data\ndatasets.  Each method immediately returns a snapshot-id.\n",
+    "endpoints": {
+      "collect_by_url": {
+        "desc": "Auto-detect the LinkedIn entity type for each URL and dispatch\nthem to the proper collect_* method.\n",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "People, company or job URLs (mixed allowed)"
+          }
+        },
+        "returns": {
+          "type": "dict[str,str]",
+          "desc": "Mapping of {'people','company','job'} \u2192 snapshot_id"
+        },
+        "example": "snap_map = scraper.collect_by_url([\n  \"https://www.linkedin.com/in/enes-kuzucu/\",\n  \"https://www.linkedin.com/company/105448508/\",\n  \"https://www.linkedin.com/jobs/view/4231516747/\"\n])\n",
+        "notes": {
+          "mapping": "Stored in self._url_buckets for auto.scrape_url support."
+        }
+      },
+      "collect_company_by_url": {
+        "desc": "Scrape LinkedIn company pages.",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Company page URLs."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id."
+        },
+        "example": "snap = scraper.collect_company_by_url([\n  \"https://www.linkedin.com/company/bright-data\"\n])"
+      },
+      "collect_jobs_by_url": {
+        "desc": "Scrape individual LinkedIn job-post URLs.",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Job listing URLs."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id."
+        },
+        "example": "snap = scraper.collect_jobs_by_url([\n  \"https://www.linkedin.com/jobs/view/4181034038/\"\n])"
+      },
+      "collect_people_by_url": {
+        "desc": "Scrape individual LinkedIn profile pages.",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Profile URLs (e.g. /in/username)."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id; poll until ready to get list[dict]."
+        },
+        "example": "snap = scraper.collect_people_by_url([\n  \"https://www.linkedin.com/in/elad-moshe-05a90413/\"\n])"
+      },
+      "discover_jobs_by_keyword": {
+        "desc": "Discover job listings via keyword / location search.",
+        "params": {
+          "queries": {
+            "type": "list[dict]",
+            "desc": "Each dict must match Bright Data\u2019s expected payload, e.g.:\n  {\"location\":\"Paris\",\n   \"keyword\":\"python developer\",\n   \"country\":\"FR\", ...}\n"
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id."
+        },
+        "example": "snap = scraper.discover_jobs_by_keyword([{\n  \"location\":\"New York\",\n  \"keyword\":\"Data Scientist\",\n  \"country\":\"US\"\n}])"
+      },
+      "discover_people_by_name": {
+        "desc": "Discover profile pages by full-name search.",
+        "params": {
+          "names": {
+            "type": "list[str]",
+            "desc": "Full names to search."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id."
+        },
+        "example": "snap = scraper.discover_people_by_name([\"Elad Moshe\", \"Aviv Tal\"])"
+      }
+    }
+  },
+  "mouser": {
+    "title": "MouserScraper",
+    "desc": "Ready-made client for Bright Data\u2019s Mouser product pages dataset.\nAll calls run in async mode and return a snapshot-id immediately.\n",
+    "endpoints": {
+      "collect_by_url": {
+        "desc": "Scrape one or more Mouser **product detail pages**.",
+        "params": {
+          "urls": {
+            "type": "list[str]",
+            "desc": "Full Mouser product-page URLs."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id string; poll until ready to retrieve JSON rows."
+        },
+        "example": "snap = scraper.collect_by_url([\n  \"https://www.mouser.com/ProductDetail/Diodes-Incorporated/DMN4035L-13?qs=EBDBlbfErPxf4bkLM3Jagg%3D%3D\"\n])"
+      }
+    }
+  },
+  "tiktok": {
+    "title": "TikTokScraper",
+    "desc": "Unified client for Bright Data\u2019s TikTok endpoints.  All methods\nrun in async mode and immediately return a snapshot-id string.\n",
+    "endpoints": {
+      "collect_comments_by_url": {
+        "desc": "Retrieve comments for specified TikTok post URLs.",
+        "params": {
+          "post_urls": {
+            "type": "list[str]",
+            "desc": "Full TikTok post URLs, e.g. \".../video/<id>\"."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id \u2013 poll this until ready to fetch results."
+        },
+        "example": "snap = scraper.collect_comments_by_url([\n  \"https://www.tiktok.com/@heymrcat/video/7216019547806092550\"\n])"
+      },
+      "collect_posts_by_profile_fast": {
+        "desc": "Fetch latest posts from profile URLs via fast-API.",
+        "params": {
+          "profile_urls": {
+            "type": "list[str]",
+            "desc": "TikTok profile URLs, e.g. \"https://www.tiktok.com/@bbc\"."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id"
+        },
+        "example": "snap = scraper.collect_posts_by_profile_fast([\n  \"https://www.tiktok.com/@bbc\"\n])"
+      },
+      "collect_posts_by_search_url_fast": {
+        "desc": "Crawl search-results feeds via TikTok fast-API.",
+        "params": {
+          "search_urls": {
+            "type": "list[str]",
+            "desc": "Full TikTok search URLs, e.g. \".../search?q=music\"."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id"
+        },
+        "example": "snap = scraper.collect_posts_by_search_url_fast([\n  \"https://www.tiktok.com/search?q=music\"\n])"
+      },
+      "collect_posts_by_url": {
+        "desc": "Standard collect-by-URL for TikTok posts.",
+        "params": {
+          "post_urls": {
+            "type": "list[str]",
+            "desc": "TikTok post URLs, e.g. \".../@user/video/<id>\"."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id"
+        }
+      },
+      "collect_posts_by_url_fast": {
+        "desc": "Fast-API variant to scrape one or many TikTok post objects.",
+        "params": {
+          "post_urls": {
+            "type": "list[str]",
+            "desc": "TikTok post URLs (same format as collect_comments_by_url)."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id \u2013 poll until ready to retrieve post JSON."
+        },
+        "example": "snap = scraper.collect_posts_by_url_fast([\n  \"https://www.tiktok.com/@mmeowmmia/video/7077929908365823237\"\n])"
+      },
+      "collect_profiles_by_url": {
+        "desc": "Scrape TikTok profile metadata (followers, bio, stats).",
+        "params": {
+          "profile_urls": {
+            "type": "list[str]",
+            "desc": "Profile URLs, e.g. \"https://www.tiktok.com/@fofimdmell\"."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id"
+        },
+        "example": "snap = scraper.collect_profiles_by_url([\n  \"https://www.tiktok.com/@fofimdmell\"\n])"
+      },
+      "discover_posts_by_keyword": {
+        "desc": "Discover posts by hashtag or keyword.",
+        "params": {
+          "keywords": {
+            "type": "list[str]",
+            "desc": "Use \"#tag\" for hashtags or plain text."
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id"
+        },
+        "example": "snap = scraper.discover_posts_by_keyword([\"#funnydogs\", \"dance\"])"
+      },
+      "discover_posts_by_profile_url": {
+        "desc": "Discover posts via profile URL with filters.",
+        "params": {
+          "queries": {
+            "type": "list[dict]",
+            "desc": "Each dict may include:\n  - url (str): profile link\n  - num_of_posts (int): 0 for no limit\n  - posts_to_not_include (list[str])\n  - what_to_collect (str): \"Posts\"|\"Reposts\"|\"Posts & Reposts\"\n  - start_date/end_date (\"MM-DD-YYYY\")\n  - post_type: \"Video\"|\"Image\"|\"\" \n  - country: ISO-2 code or empty\n"
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id"
+        }
+      },
+      "discover_profiles_by_search_url": {
+        "desc": "Discover TikTok profiles from search/explore URLs.",
+        "params": {
+          "queries": {
+            "type": "list[dict]",
+            "desc": "Each dict must contain:\n  - search_url: explore or search URL\n  - country: ISO-2 code or empty\n"
+          }
+        },
+        "returns": {
+          "type": "str",
+          "desc": "snapshot_id"
+        },
+        "example": "snap = scraper.discover_profiles_by_search_url([\n  {\"search_url\": \"https://www.tiktok.com/explore?lang=en\", \"country\": \"US\"}\n])"
+      }
+    }
+  }
+}

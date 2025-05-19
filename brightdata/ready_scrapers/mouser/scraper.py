@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 brightdata.ready_scrapers.mouser.scraper
 ----------------------------------------
@@ -12,76 +13,73 @@ The call is made in *async* mode (`sync_mode=async` is injected by the
 shared base class), therefore it returns immediately with a **snapshot-id
 string**.  Use the familiar helper `poll_until_ready()` or
 `utils.async_poll.wait_ready()` to obtain the final JSON rows.
-
-Example
-~~~~~~~
->>> from brightdata.ready_scrapers.mouser import MouserScraper
->>> s = MouserScraper(bearer_token=TOKEN)
->>> snap = s.collect_by_url(["https://www.mouser.com/ProductDetail/…"])
->>> rows = poll_until_ready(s, snap).data
 """
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Sequence, Optional
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
 
-# dataset taken from the request you provided
+# Static Bright-Data dataset ID (from the Mouser trigger example)
 _DATASET_COLLECT_BY_URL = "gd_lfjty8942ogxzhmp8t"
 
 
-@register("mouser")        
+@register("mouser")
 class MouserScraper(BrightdataBaseSpecializedScraper):
     """
-    Ready-made Bright Data client for Mouser product data.
-
-    Endpoints
-    ---------
-    • collect_by_url(urls)
-
-    All other Mouser dataset flavours (discover by category, keyword, …
-    if Bright Data adds them later) can be implemented by copying the
-    pattern shown for Digi-Key and Amazon.
+    ---
+    agent_id: mouser
+    title: MouserScraper
+    desc: |
+      Ready-made client for Bright Data’s Mouser product pages dataset.
+      All calls run in async mode and return a snapshot-id immediately.
+    example: |
+      from brightdata.ready_scrapers.mouser import MouserScraper
+      s = MouserScraper()
+      snap = s.collect_by_url(["https://www.mouser.com/ProductDetail/ABRACON/ABM8-147456MHZ-D1X-T"])
+      # → 's_abcdef12345'
+    ---
     """
 
-    # the base class only needs *one* dataset_id for initialisation;
-    # individual methods can override with their own id if required.
-    def __init__(
-        self,
-        bearer_token: str,
-        *,
-        dataset_id: str = _DATASET_COLLECT_BY_URL,
-    ):
-        super().__init__(dataset_id=dataset_id, bearer_token=bearer_token)
-
-    # ─────────────────────────────────────────────────────────────
-    # public endpoint
-    # ─────────────────────────────────────────────────────────────
-    def collect_by_url(
-        self,
-        urls: Sequence[str],
-    ) -> str:
+    def __init__(self, bearer_token: Optional[str] = None, **kw):
         """
-        Bright Data → *mouser-products → Collect by URL*
+        Initialize the MouserScraper.
 
         Parameters
         ----------
-        urls : list[str]
-            One or many full Mouser product-page URLs.
+        bearer_token : str, optional
+            Bright Data API token.  If omitted, reads BRIGHTDATA_TOKEN from the
+            environment (a .env file is honoured).
+        **kw :
+            Extra keyword-arguments forwarded to the base class.
+        """
+        super().__init__(dataset_id=_DATASET_COLLECT_BY_URL,
+                         bearer_token=bearer_token,
+                         **kw)
 
-        Returns
-        -------
-        snapshot_id : str
-            Pass to scraper.get_data() or an async/await poller.
+    def collect_by_url(self, urls: Sequence[str]) -> str:
+        """
+        ---
+        endpoint: collect_by_url
+        desc: Scrape one or more Mouser **product detail pages**.
+        params:
+          urls:
+            type: list[str]
+            desc: Full Mouser product-page URLs.
+        returns:
+          type: str
+          desc: snapshot_id string; poll until ready to retrieve JSON rows.
+        example: |
+          snap = scraper.collect_by_url([
+            "https://www.mouser.com/ProductDetail/Diodes-Incorporated/DMN4035L-13?qs=EBDBlbfErPxf4bkLM3Jagg%3D%3D"
+          ])
+        ---
         """
         payload = [{"url": u} for u in urls]
         return self._trigger(
             payload,
             dataset_id=_DATASET_COLLECT_BY_URL,
-            # no extra_params needed; _trigger already injects sync_mode=async
+            # sync_mode=async is injected by the base class
         )
-
-    # inherited _trigger() already handles everything we need.
-
 
 # so that “from brightdata.ready_scrapers.mouser import MouserScraper” works
 # __all__ = ["MouserScraper"]
