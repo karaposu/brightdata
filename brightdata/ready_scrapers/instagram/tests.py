@@ -41,65 +41,74 @@ def main():
     # discover_reels_all_by_url
     
     # ─────────────────────────────────────────────────────────────
-    # 1. collect_profiles_by_url
+    # 1. profiles__collect_by_url
     # ─────────────────────────────────────────────────────────────
-    profile_urls = [
+    sample_for_profiles__collect_by_url = [
         "https://www.instagram.com/leonardodicaprio/?hl=en",
     ]
     
-    snap = scraper.collect_by_url(profile_urls)
-    poll_until_ready_and_show(scraper, "collect_profiles_by_url", snap)
+    snap = scraper.profiles__collect_by_url(sample_for_profiles__collect_by_url)
+    poll_until_ready_and_show(scraper, "profiles__collect_by_url", snap)
     
     # ─────────────────────────────────────────────────────────────
-    # 2. collect_posts_by_url
+    # 2. posts__collect_by_url
     # ─────────────────────────────────────────────────────────────
-    post_urls = [
+    sample_for_posts__collect_by_url = [
         "https://www.instagram.com/p/DHtYVbIJiv4/?hl=en",
     ]
-    snap = scraper.discover_by_category(post_urls)
-    poll_until_ready_and_show(scraper,"collect_posts_by_url", snap)
+    snap = scraper.posts__collect_by_url(sample_for_posts__collect_by_url)
+    poll_until_ready_and_show(scraper,"posts__collect_by_url", snap)
 
 
 
     # ─────────────────────────────────────────────────────────────
-    # 3. discover_posts_by_url
+    # 3. posts__discover_by_url
     # ─────────────────────────────────────────────────────────────
-    discover_posts_urls = [
+    sample_for_posts__discover_by_url = [
         "https://www.instagram.com/p/DJpaR0nOrlf",
     ]
-    snap = scraper.discover_by_category(discover_posts_urls)
-    poll_until_ready_and_show(scraper,"discover_posts_by_url", snap)
+    snap = scraper.posts__discover_by_url(sample_for_posts__discover_by_url)
+    poll_until_ready_and_show(scraper,"posts__discover_by_url", snap)
 
 
     # ─────────────────────────────────────────────────────────────
-    # 4. collect_comments_by_url
+    # 4. comments__collect_by_url
     # ─────────────────────────────────────────────────────────────
-    samples_for_collect_comments_by_urls = [
+    
+    samples_for_comments__collect_by_url = [
         "https://www.instagram.com/cats_of_instagram/reel/C4GLo_eLO2e/",
     ]
-    snap = scraper.discover_by_category(samples_for_collect_comments_by_urls)
-    poll_until_ready_and_show(scraper,"collect_comments_by_url", snap)
-
+    snap = scraper.comments__collect_by_url(samples_for_comments__collect_by_url)
+    poll_until_ready_and_show(scraper,"comments__collect_by_url", snap)
 
 
     # ─────────────────────────────────────────────────────────────
-    # 5. discover_reels_by_url
+    # 5. reels__discover_by_url
     # ─────────────────────────────────────────────────────────────
-    samples_for_discover_reels_by_url = [
-        "https://www.instagram.com/espn",
+    
+    sample_for_reels__discover_by_url = [
+    {
+        "url": "https://www.instagram.com/billieeilish",
+        "num_of_posts": 20,
+        "start_date": "",      # ""  ➜ no lower bound
+        "end_date": ""         # ""  ➜ no upper bound
+    }
     ]
-    snap = scraper.discover_by_category(samples_for_discover_reels_by_url)
-    poll_until_ready_and_show(scraper,"discover_reels_by_url", snap)
+    snap = scraper.reels__discover_by_url(sample_for_reels__discover_by_url)
+    poll_until_ready_and_show(scraper,"reels__discover_by_url", snap)
 
-
+    
     # ─────────────────────────────────────────────────────────────
-    # 5. discover_reels_all_by_url
+    # 5. reels__discover_by_url_all_reels
     # ─────────────────────────────────────────────────────────────
-    samples_for_discover_reels_all_by_url = [
+    samples_for_reels__discover_by_url_all_reels = [
         "https://www.instagram.com/billieeilish",
     ]
-    snap = scraper.discover_by_category(samples_for_discover_reels_all_by_url)
-    poll_until_ready_and_show(scraper,"discover_reels_all_by_url", snap)
+    snap = scraper.reels__discover_by_url_all_reels(samples_for_reels__discover_by_url_all_reels)
+    poll_until_ready_and_show(scraper,"reels__discover_by_url_all_reels", snap)
+
+
+
 
 
 

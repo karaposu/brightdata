@@ -196,23 +196,8 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
             extra_params={"sync_mode": "async"},
         )
 
-    # ------------------------------------------------------------------ #
-    # INTERNAL  – thin passthrough
-    # ------------------------------------------------------------------ #
-    def _trigger(
-        self,
-        data: List[Dict[str, Any]],
-        *,
-        dataset_id: str,
-        include_errors: bool = True,
-        extra_params: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        return super()._trigger(
-            data,
-            dataset_id=dataset_id,
-            include_errors=include_errors,
-            extra_params=extra_params,
-        )
+   
+    
 
 
 

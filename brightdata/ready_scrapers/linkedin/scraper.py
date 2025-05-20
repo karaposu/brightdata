@@ -112,11 +112,11 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
 
         results: Dict[str, str] = {}
         if buckets.get("people"):
-            results["people"] = self.collect_people_by_url(buckets["people"])
+            results["people"] = self.people_profiles__collect_by_url(buckets["people"])
         if buckets.get("company"):
-            results["company"] = self.collect_company_by_url(buckets["company"])
+            results["company"] = self.company_information__collect_by_url(buckets["company"])
         if buckets.get("job"):
-            results["job"] = self.collect_jobs_by_url(buckets["job"])
+            results["job"] = self.job_listing_information__collect_by_url(buckets["job"])
         return results
 
     def _classify(self, url: str) -> str | None:
@@ -290,6 +290,4 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
 
         
 
-    # no _trigger override needed; inherited from base
-
-# __all__ = ["LinkedInScraper"]
+    

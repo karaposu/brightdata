@@ -30,8 +30,8 @@ if not TOKEN:
 
 
 def main():
-
-    scraper = DigikeyScraper(bearer_token=TOKEN)
+    
+    scraper = DigikeyScraper()
 
     
     # ─────────────────────────────────────────────────────────────

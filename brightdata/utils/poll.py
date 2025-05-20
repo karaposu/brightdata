@@ -17,6 +17,7 @@ Usage
 from __future__ import annotations
 import time
 from typing import Union, Callable, Optional
+from pprint import pprint
 from brightdata.base_specialized_scraper import ScrapeResult
 
 
@@ -67,3 +68,46 @@ def poll_until_ready(
             )
 
         time.sleep(poll)
+
+
+def poll_until_ready_and_show(scraper, label: str, snap_id: str, timeout=600):
+        print(f"\n=== {label} ===  (snapshot: {snap_id})")
+        res = poll_until_ready(scraper, snap_id, poll=10, timeout=timeout)
+
+        if res.status == "ready":
+            print(f"{label} ✓  received {len(res.data)} rows")
+            pprint(res.data[:2])
+        else:
+            print(f"{label} ✗  {res.status} – {res.error or ''}")
+
+
+
+
+    # def poll_until_ready(
+    #     snapshot_id: str,
+    #     poll: int = 10,
+    #     timeout: int = 600,
+    # ) -> ScrapeResult:
+    #     start = time.time()
+    #     attempt = 0
+    #     while True:
+    #         attempt += 1
+    #         res: ScrapeResult = scraper.get_data(snapshot_id)
+    #         elapsed = int(time.time() - start)
+    #         print(f"[#{attempt:<2} | +{elapsed:>4}s]  {res.status}")
+
+    #         if res.status in {"ready", "error"}:
+    #             return res
+    #         if elapsed >= timeout:
+    #             return ScrapeResult(False, "timeout",
+    #                                 error=f"gave up after {timeout}s")
+    #         time.sleep(poll)
+
+    # def show(label: str, snapshot_id: str):
+    #     print(f"\n=== {label} ===  (snapshot: {snapshot_id})")
+    #     res = poll_until_ready(snapshot_id, poll=10, timeout=600)
+    #     if res.status == "ready":
+    #         print(f"{label} ✓  received {len(res.data)} rows")
+    #         pprint(res.data[:2])
+    #     else:
+    #         print(f"{label} ✗  {res.status} – {res.error or ''}")

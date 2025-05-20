@@ -83,5 +83,3 @@ class MouserScraper(BrightdataBaseSpecializedScraper):
     def discover_by_category():
         pass
 
-# so that “from brightdata.ready_scrapers.mouser import MouserScraper” works
-# __all__ = ["MouserScraper"]

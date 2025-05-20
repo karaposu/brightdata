@@ -77,9 +77,9 @@ class XScraper(BrightdataBaseSpecializedScraper):
                                       queries: Sequence[Dict[str, Any]]) -> str:
         """
         Crawl **many tweets** from one or several profile URLs.
-
+        
         Each *query* dict may contain:
-
+        
         ==================  ---------------------------------------------------
         Key                  Meaning / example
         ------------------  ---------------------------------------------------
@@ -135,25 +135,5 @@ class XScraper(BrightdataBaseSpecializedScraper):
             dataset_id=_DATASET["profiles"],
             extra_params={"sync_mode": "async"},
         )
-
-    # ------------------------------------------------------------------ #
-    # Internal passthrough
-    # ------------------------------------------------------------------ #
-    def _trigger(self,
-                 data: List[Dict[str, Any]],
-                 *,
-                 dataset_id: str,
-                 include_errors: bool = True,
-                 extra_params: Optional[Dict[str, Any]] = None) -> str:
-        """
-        Thin wrapper that just forwards to the protected base method.
-        """
-        return super()._trigger(
-            data,
-            dataset_id=dataset_id,
-            include_errors=include_errors,
-            extra_params=extra_params,
-        )
-
-
-
+    
+   

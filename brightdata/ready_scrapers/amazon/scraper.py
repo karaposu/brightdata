@@ -2,7 +2,10 @@
 from typing import Any, Dict, List, Optional, Sequence
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+from collections import defaultdict
 from brightdata.registry import register
+
+
 
 @register("amazon")
 class AmazonScraper(BrightdataBaseSpecializedScraper):
@@ -37,7 +40,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
             **kw,
         )
 
-   
+    
     # products__collect_by_url
     # products__discover_by_best_sellers_url
     # products__discover_by_category_url
@@ -46,6 +49,58 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
     # reviews__collect_by_url
     # sellers_info__collect_by_url
     # products_search__collect_by_url
+
+    
+    # ═══════════════════════════════════════════════════════════════════ #
+    # 0.  SMART ROUTER  ▸  collect_by_url()
+    # ═══════════════════════════════════════════════════════════════════ #
+    def collect_by_url(self, urls: Sequence[str], **kw) -> Dict[str, str]:
+        """
+        High-level “just scrape it” helper.
+
+        It inspects each input URL, detects its type and forwards the sub-list
+        to one of the specialised methods below.
+
+        Parameters
+        ----------
+        urls : sequence[str]
+            A mix of product, review, seller and search URLs.
+
+        Returns
+        -------
+        dict[str, str]
+            Keys: ``product | review | seller | search``  
+            Values: snapshot-ids returned by the respective endpoints.
+
+        Notes
+        -----
+        *The mapping ‹type → original-URLs› is stored on the instance under
+        ``self._url_buckets`` so that external helpers (e.g. *scrape_url*) can
+        reconcile results.*
+        """
+        buckets: DefaultDict[str, List[str]] = defaultdict(list)
+
+        for u in urls:
+            if   _RX_PRODUCT.search(u): buckets["product"].append(u)
+            elif _RX_REVIEW.search(u):  buckets["review"].append(u)
+            elif _RX_SELLER.search(u):  buckets["seller"].append(u)
+            elif _RX_SEARCH.search(u):  buckets["search"].append(u)
+            else:
+                raise ValueError(f"Unrecognised Amazon URL: {u}")
+
+        self._url_buckets: Dict[str, List[str]] = dict(buckets)  # expose
+
+        out: Dict[str, str] = {}
+        if buckets.get("product"):
+            out["product"] = self.products__collect_by_url(buckets["product"], **kw)
+        if buckets.get("review"):
+            out["review"]  = self.reviews__collect_by_url(buckets["review"], **kw)   # stub
+        if buckets.get("seller"):
+            out["seller"]  = self.sellers_info__collect_by_url(buckets["seller"], **kw)  # stub
+        if buckets.get("search"):
+            out["search"]  = self.products_search__collect_by_url(buckets["search"], **kw)
+
+        return out
 
     def products__collect_by_url(
         self,
@@ -208,39 +263,4 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
         ]
         return self._trigger(payload, dataset_id=self._DATASET["search"])
 
-    def _trigger(
-        self,
-        data: List[Dict[str, Any]],
-        *,
-        dataset_id: str,
-        include_errors: bool = True,
-        extra_params: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]] | str:
-        """
-        ---
-        endpoint: _trigger
-        desc: Internal helper delegating to the base class.
-        params:
-          data:
-            type: list[dict]
-            desc: Payload for Bright Data.
-          dataset_id:
-            type: str
-            desc: Dataset identifier.
-          include_errors:
-            type: bool
-            desc: Include error objects in response.
-          extra_params:
-            type: dict
-            desc: Additional query parameters.
-        returns:
-          type: list[dict] | str
-          desc: JSON rows or snapshot_id.
-        ---
-        """
-        return super()._trigger(
-            data,
-            dataset_id=dataset_id,
-            include_errors=include_errors,
-            extra_params=extra_params,
-        )
+    

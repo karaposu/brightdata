@@ -66,7 +66,7 @@ class BrightdataBaseSpecializedScraper:
         if bearer_token is None:
             
             load_dotenv()
-            BRIGHTDATA_BEARER = os.getenv("BRIGHTDATA_BEARER")
+            BRIGHTDATA_BEARER = os.getenv("BRIGHTDATA_TOKEN")
             if not BRIGHTDATA_BEARER:
                 pass
                 #throw breaking error here

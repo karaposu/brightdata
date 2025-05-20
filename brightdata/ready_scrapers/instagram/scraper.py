@@ -15,6 +15,9 @@ Implemented endpoints
 # reels__discover_by_url_all_reels
 # comments__collect_by_url
 
+
+
+
 All calls force `sync_mode=async`, therefore **every method immediately  
 returns a *snapshot-id* string**.  Run the snapshot through one of the  
 poll-helpers to receive the final JSON rows.
@@ -34,6 +37,12 @@ from typing import Any, Dict, List, Sequence, Optional
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
+from urllib.parse import urlparse
+
+
+# {"url":"https://www.instagram.com/cats_of_instagram/reel/C4GLo_eLO2e/"},
+# {"url":"https://www.instagram.com/catsofinstagram/p/CesFC7JLyFl/?img_index=1"},
+# {"url":"https://www.instagram.com/cats_of_instagram/reel/C2TmNOVMSbG/"},
 
 
 # --------------------------------------------------------------------------- #
@@ -84,7 +93,77 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
         """
         super().__init__(_DATASET["profiles"], bearer_token, **kw)
 
+    # ------------------------------------------------------------------ #
+    # SMART COLLECT ROUTER
+    # ------------------------------------------------------------------ #
+    def collect_by_url(
+        self,
+        urls: Sequence[str],
+        *,
+        include_comments: bool = False,
+    ) -> Dict[str, str]:
+        """
+        Smart one-call entry point.
 
+        • Detects whether each URL is a *profile*, *post* or *reel*  
+        • If **include_comments=True** all post / reel URLs are fetched
+          **via the comments dataset** instead of the post / reel datasets.
+
+        Parameters
+        ----------
+        urls : list[str]
+            Any mix of profile / post / reel links.
+        include_comments : bool, default **False**
+            *False* ⇒ get the post/reel objects themselves.  
+            *True*  ⇒ get the complete comment thread instead.
+
+        Returns
+        -------
+        dict[str, str]
+            Mapping ``bucket → snapshot_id``  
+            (`bucket` ∈ {"profiles", "posts", "reels", "comments"} –  
+            only the ones actually triggered are present).
+        """
+        # Buckets for the three canonical datasets (+comments)
+        profiles, posts, reels, comments = [], [], [], []
+
+        for url in urls:
+            path = urlparse(url).path.lower()
+            if "/reel/" in path:
+                # treat as reel – but may get redirected to *comments*
+                (comments if include_comments else reels).append(url)
+            elif "/p/" in path:
+                # treat as image-post
+                (comments if include_comments else posts).append(url)
+            else:
+                profiles.append(url)
+
+        results: Dict[str, str] = {}
+
+        # ---- trigger the necessary sub-jobs ---------------------------
+        if profiles:
+            results["profiles"] = self.profiles__collect_by_url(profiles)
+
+        if posts:
+            results["posts"] = self.posts__collect_by_url(posts)
+
+        if reels:
+            results["reels"] = self.reels__collect_by_url(reels)
+
+        if comments:
+            # Bright Data expects *payload objects*, not just raw URLs.
+            payload = [
+                {
+                    "url": u,
+                    "days_back": "",
+                    "load_all_replies": False,
+                    "comment_limit": ""
+                }
+                for u in comments
+            ]
+            results["comments"] = self.comments__collect_by_url(payload)
+
+        return results
    
 
 
