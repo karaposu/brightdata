@@ -80,6 +80,8 @@ class MouserScraper(BrightdataBaseSpecializedScraper):
             dataset_id=_DATASET_COLLECT_BY_URL,
             # sync_mode=async is injected by the base class
         )
+    def discover_by_category():
+        pass
 
 # so that “from brightdata.ready_scrapers.mouser import MouserScraper” works
 # __all__ = ["MouserScraper"]

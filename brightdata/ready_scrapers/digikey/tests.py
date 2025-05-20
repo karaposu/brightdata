@@ -12,11 +12,12 @@
 import os
 import sys
 import time
-from pprint import pprint
+
 from dotenv import load_dotenv
 
 from brightdata.ready_scrapers.digikey import DigikeyScraper
 from brightdata.base_specialized_scraper import ScrapeResult
+from brightdata.utils.poll import poll_until_ready_and_show 
 
 # ─────────────────────────────────────────────────────────────
 # 0. credentials
@@ -32,38 +33,7 @@ def main():
 
     scraper = DigikeyScraper(bearer_token=TOKEN)
 
-    # ─────────────────────────────────────────────────────────────
-    # helper – poll Bright Data until snapshot is ready
-    # ─────────────────────────────────────────────────────────────
-    def poll_until_ready(
-        snapshot_id: str,
-        poll: int = 10,
-        timeout: int = 600,
-    ) -> ScrapeResult:
-        start = time.time()
-        attempt = 0
-        while True:
-            attempt += 1
-            res: ScrapeResult = scraper.get_data(snapshot_id)
-            elapsed = int(time.time() - start)
-            print(f"[#{attempt:<2} | +{elapsed:>4}s]  {res.status}")
-
-            if res.status in {"ready", "error"}:
-                return res
-            if elapsed >= timeout:
-                return ScrapeResult(False, "timeout",
-                                    error=f"gave up after {timeout}s")
-            time.sleep(poll)
-
-    def show(label: str, snapshot_id: str):
-        print(f"\n=== {label} ===  (snapshot: {snapshot_id})")
-        res = poll_until_ready(snapshot_id, poll=10, timeout=600)
-        if res.status == "ready":
-            print(f"{label} ✓  received {len(res.data)} rows")
-            pprint(res.data[:2])
-        else:
-            print(f"{label} ✗  {res.status} – {res.error or ''}")
-
+    
     # ─────────────────────────────────────────────────────────────
     # 1. COLLECT BY URL
     # ─────────────────────────────────────────────────────────────
@@ -75,8 +45,8 @@ def main():
         "division-of-vishay-precision-group/Y1453100R000F9L/4228045",
     ]
     snap = scraper.collect_by_url(product_urls)
-    show("collect_by_url", snap)
-
+    poll_until_ready_and_show(scraper, "collect_by_url", snap)
+    
     # ─────────────────────────────────────────────────────────────
     # 2. DISCOVER BY CATEGORY
     # ─────────────────────────────────────────────────────────────
@@ -84,13 +54,13 @@ def main():
         "https://www.digikey.co.il/en/products/filter/anti-static-esd-bags-"
         "materials/605?s=N4IgjCBcoLQExVAYygFwE4FcCmAaEA9lANogCsIAugL74wCciIKk"
         "GO%2BRkpEN11QA",
-
+    
         "https://www.digikey.co.il/en/products/filter/batteries-non-"
         "rechargeable-primary/90?s=N4IgjCBcoLQExVAYygFwE4FcCmAaEA9lANogCsIAugL"
         "74wCciIKkGO%2BRkpEN11QA",
     ]
     snap = scraper.discover_by_category(cat_urls)
-    show("discover_by_category", snap)
+    poll_until_ready_and_show(scraper,"discover_by_category", snap, timeout= 1000)
 
 
 

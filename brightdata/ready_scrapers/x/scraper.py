@@ -49,7 +49,7 @@ class XScraper(BrightdataBaseSpecializedScraper):
     # ****************************************************************** #
     # 1.  POSTS  ▸  collect by URL
     # ****************************************************************** #
-    def collect_posts_by_url(self, post_urls: Sequence[str]) -> str:
+    def posts__collect_by_url(self, post_urls: Sequence[str]) -> str:
         """
         Scrape **individual posts** (tweets) by URL.
 
@@ -73,7 +73,7 @@ class XScraper(BrightdataBaseSpecializedScraper):
     # ****************************************************************** #
     # 2.  POSTS  ▸  discover by profile URL
     # ****************************************************************** #
-    def discover_posts_by_profile_url(self,
+    def posts__discover_by_profile_url(self,
                                       queries: Sequence[Dict[str, Any]]) -> str:
         """
         Crawl **many tweets** from one or several profile URLs.
@@ -102,13 +102,13 @@ class XScraper(BrightdataBaseSpecializedScraper):
             },
         )
 
-    # alias – Bright Data sometimes calls exactly the same endpoint
-    discover_posts_by_url = discover_posts_by_profile_url  # type: ignore
+    # # alias – Bright Data sometimes calls exactly the same endpoint
+    # discover_posts_by_url = discover_posts_by_profile_url  # type: ignore
 
     # ****************************************************************** #
     # 3.  PROFILES  ▸  collect by URL
     # ****************************************************************** #
-    def collect_profiles_by_url(self,
+    def profiles__collect_by_url(self,
                                 profile_urls: Sequence[str],
                                 max_posts: int | None = None) -> str:
         """
@@ -156,4 +156,4 @@ class XScraper(BrightdataBaseSpecializedScraper):
         )
 
 
-__all__ = ["XScraper"]
+

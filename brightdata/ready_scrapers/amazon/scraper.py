@@ -37,14 +37,24 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
             **kw,
         )
 
-    def collect_by_url(
+   
+    # products__collect_by_url
+    # products__discover_by_best_sellers_url
+    # products__discover_by_category_url
+    # products__discover_by_keyword
+    # products__discoter_by_upc
+    # reviews__collect_by_url
+    # sellers_info__collect_by_url
+    # products_search__collect_by_url
+
+    def products__collect_by_url(
         self,
         urls: Sequence[str],
         zipcodes: Optional[Sequence[str]] = None,
     ) -> List[Dict[str, Any]] | str:
         """
         ---
-        endpoint: collect_by_url
+        endpoint: products__collect_by_url
         desc: Scrape one or many Amazon product pages (ASIN detail).
         params:
           urls:
@@ -57,7 +67,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
           type: list[dict] | str
           desc: Immediate rows (sync) or snapshot_id (async).
         example: |
-          snap = scraper.collect_by_url(
+          snap = scraper.products__collect_by_url(
             ["https://www.amazon.com/dp/B0CRMZHDG8"], zipcodes=["94107"]
           )
         ---
@@ -67,39 +77,18 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
             for i, u in enumerate(urls)
         ]
         return self._trigger(payload, dataset_id=self._DATASET["collect"])
-
-    def discover_by_keyword(self, keywords: Sequence[str]) -> List[Dict[str, Any]] | str:
-        """
-        ---
-        endpoint: discover_by_keyword
-        desc: Run an Amazon keyword search and return new product links.
-        params:
-          keywords:
-            type: list[str]
-            desc: Search terms (one job per keyword).
-        returns:
-          type: list[dict] | str
-          desc: Immediate rows or snapshot_id.
-        example: |
-          snap = scraper.discover_by_keyword(["laptop", "headphones"])
-        ---
-        """
-        payload = [{"keyword": kw} for kw in keywords]
-        return self._trigger(
-            payload,
-            dataset_id=self._DATASET["discover_keyword"],
-            extra_params={"type": "discover_new", "discover_by": "keyword"},
-        )
-
-    def discover_by_category(
-        self,
+    
+    def products__discover_by_best_sellers_url():
+        pass
+    
+    def products__discover_by_category_url( self,
         category_urls: Sequence[str],
         sorts: Optional[Sequence[str]] = None,
         zipcodes: Optional[Sequence[str]] = None,
     ) -> List[Dict[str, Any]] | str:
         """
         ---
-        endpoint: discover_by_category
+        endpoint: products__discover_by_category_url
         desc: Collect new ASINs from category/browse URLs.
         params:
           category_urls:
@@ -118,7 +107,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
           ValueError:
             desc: If the three input lists’ lengths don’t match.
         example: |
-          snap = scraper.discover_by_category(
+          snap = scraper.products__discover_by_category_url(
             ["https://www.amazon.com/s?i=electronics"],
             sorts=["Best Sellers"],
             zipcodes=["94107"]
@@ -139,8 +128,44 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
             dataset_id=self._DATASET["discover_category"],
             extra_params={"type": "discover_new", "discover_by": "category_url"},
         )
+    
 
-    def search_products(
+    def products__discover_by_keyword(self, keywords: Sequence[str]) -> List[Dict[str, Any]] | str:
+        """
+        ---
+        endpoint: products__discover_by_keyword
+        desc: Run an Amazon keyword search and return new product links.
+        params:
+          keywords:
+            type: list[str]
+            desc: Search terms (one job per keyword).
+        returns:
+          type: list[dict] | str
+          desc: Immediate rows or snapshot_id.
+        example: |
+          snap = scraper.products__discover_by_keyword(["laptop", "headphones"])
+        ---
+        """
+        payload = [{"keyword": kw} for kw in keywords]
+        return self._trigger(
+            payload,
+            dataset_id=self._DATASET["discover_keyword"],
+            extra_params={"type": "discover_new", "discover_by": "keyword"},
+        )
+    
+    def products__discover_by_upc():
+        pass
+    
+    def reviews__collect_by_url():
+        pass
+    
+    def sellers_info__collect_by_url():
+        pass
+
+   
+  
+
+    def products_search__collect_by_url(
         self,
         keywords: Sequence[str],
         domains: Optional[Sequence[str]] = None,
@@ -148,7 +173,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
     ) -> List[Dict[str, Any]] | str:
         """
         ---
-        endpoint: search_products
+        endpoint: products_search__collect_by_url
         desc: Crawl Amazon SERPs across multiple storefronts.
         params:
           keywords:
@@ -167,7 +192,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
           ValueError:
             desc: If keywords, domains, and pages lengths differ.
         example: |
-          snap = scraper.search_products(
+          snap = scraper.products_search__collect_by_url(
             ["laptop"], domains=["https://www.amazon.com"], pages=[2]
           )
         ---

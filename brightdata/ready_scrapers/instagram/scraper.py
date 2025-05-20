@@ -7,12 +7,13 @@ Unofficial wrapper around Bright Data’s Instagram datasets.
 
 Implemented endpoints
 ---------------------
-* collect_profiles_by_url  → instagram_profiles__collect_by_url  
-* collect_posts_by_url     → instagram_posts__collect_by_url  
-* discover_posts_by_url    → instagram_posts__discover_by_url  
-* collect_comments_by_url  → instagram_comments__collect_by_url  
-* discover_reels_by_url    → instagram_reels__discover_by_url  
-* discover_reels_all_by_url→ instagram_reels__discover_by_url_all_reels  
+# profiles__collect_by_url
+# posts__collect_by_url
+# posts__discover_by_url
+# reels__collect_by_url
+# reels__discover_by_url
+# reels__discover_by_url_all_reels
+# comments__collect_by_url
 
 All calls force `sync_mode=async`, therefore **every method immediately  
 returns a *snapshot-id* string**.  Run the snapshot through one of the  
@@ -33,6 +34,7 @@ from typing import Any, Dict, List, Sequence, Optional
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
+
 
 # --------------------------------------------------------------------------- #
 # Static dataset-IDs – harvested from the raw API examples you supplied
@@ -82,10 +84,14 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
         """
         super().__init__(_DATASET["profiles"], bearer_token, **kw)
 
-    def collect_profiles_by_url(self, urls: Sequence[str]) -> str:
+
+   
+
+
+    def profiles__collect_by_url(self, urls: Sequence[str]) -> str:
         """
         ---
-        endpoint: collect_profiles_by_url
+        endpoint: profiles__collect_by_url
         desc: Scrape Instagram profile pages (followers, bio, counters).
         params:
           urls:
@@ -95,7 +101,7 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id; poll until ready to get list[dict].
         example: |
-          snap = scraper.collect_profiles_by_url([
+          snap = scraper.profiles__collect_by_url([
             "https://www.instagram.com/cats_of_world_/"
           ])
         ---
@@ -107,10 +113,10 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
             extra_params={"sync_mode": "async"},
         )
 
-    def collect_posts_by_url(self, urls: Sequence[str]) -> str:
+    def posts__collect_by_url(self, urls: Sequence[str]) -> str:
         """
         ---
-        endpoint: collect_posts_by_url
+        endpoint: posts__collect_by_url
         desc: Scrape individual Instagram posts (images or reels).
         params:
           urls:
@@ -120,7 +126,7 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id; poll until ready to get list[dict].
         example: |
-          snap = scraper.collect_posts_by_url([
+          snap = scraper.posts__collect_by_url([
             "https://www.instagram.com/p/Cuf4s0MNqNr",
             "https://www.instagram.com/reel/Cuvy6JbtyQ6"
           ])
@@ -133,10 +139,10 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
             extra_params={"sync_mode": "async"},
         )
 
-    def discover_posts_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+    def posts__discover_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
         """
         ---
-        endpoint: discover_posts_by_url
+        endpoint: posts__discover_by_url
         desc: Crawl multiple posts from profile / hashtag / tagged feeds.
         params:
           queries:
@@ -154,7 +160,7 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id; poll until ready to get list[dict].
         example: |
-          snap = scraper.discover_posts_by_url([{
+          snap = scraper.posts__discover_by_url([{
             "url":"https://www.instagram.com/meta/",
             "num_of_posts":10,
             "post_type":"Reel",
@@ -172,36 +178,16 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
                 "discover_by": "url",
             },
         )
+    
+    def reels__collect_by_url():
+        pass
 
-    def collect_comments_by_url(self, post_urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: collect_comments_by_url
-        desc: Retrieve all comments for the given post or reel URLs.
-        params:
-          post_urls:
-            type: list[str]
-            desc: URLs of posts or reels.
-        returns:
-          type: str
-          desc: snapshot_id; poll until ready to get list[dict].
-        example: |
-          snap = scraper.collect_comments_by_url([
-            "https://www.instagram.com/p/Cuf4s0MNqNr"
-          ])
-        ---
-        """
-        payload = [{"url": u} for u in post_urls]
-        return self._trigger(
-            payload,
-            dataset_id=_DATASET["comments"],
-            extra_params={"sync_mode": "async"},
-        )
+   
 
-    def discover_reels_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+    def reels__discover_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
         """
         ---
-        endpoint: discover_reels_by_url
+        endpoint: reels__discover_by_url
         desc: Fetch recent reels for multiple accounts.
         params:
           queries:
@@ -216,7 +202,7 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id; poll until ready to get list[dict].
         example: |
-          snap = scraper.discover_reels_by_url([{
+          snap = scraper.reels__discover_by_url([{
             "url":"https://www.instagram.com/espn",
             "num_of_posts":5,
             "start_date":"","end_date":""
@@ -233,10 +219,11 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
             },
         )
 
-    def discover_reels_all_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+
+    def reels__discover_by_url_all_reels(self, queries: Sequence[Dict[str, Any]]) -> str:
         """
         ---
-        endpoint: discover_reels_all_by_url
+        endpoint: reels__discover_by_url_all_reels
         desc: Crawl the complete reel history of each account.
         params:
           queries:
@@ -250,7 +237,7 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id; poll until ready to get list[dict].
         example: |
-          snap = scraper.discover_reels_all_by_url([{
+          snap = scraper.reels__discover_by_url_all_reels([{
             "url":"https://www.instagram.com/billieeilish",
             "num_of_posts":20
           }])
@@ -264,6 +251,32 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
                 "type":        "discover_new",
                 "discover_by": "url_all_reels",
             },
+        )
+    
+
+    def comments__collect_by_url(self, post_urls: Sequence[str]) -> str:
+        """
+        ---
+        endpoint: comments__collect_by_url
+        desc: Retrieve all comments for the given post or reel URLs.
+        params:
+          post_urls:
+            type: list[str]
+            desc: URLs of posts or reels.
+        returns:
+          type: str
+          desc: snapshot_id; poll until ready to get list[dict].
+        example: |
+          snap = scraper.comments__collect_by_url([
+            "https://www.instagram.com/p/Cuf4s0MNqNr"
+          ])
+        ---
+        """
+        payload = [{"url": u} for u in post_urls]
+        return self._trigger(
+            payload,
+            dataset_id=_DATASET["comments"],
+            extra_params={"sync_mode": "async"},
         )
 
     def _trigger(

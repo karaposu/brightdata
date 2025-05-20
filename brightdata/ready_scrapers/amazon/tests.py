@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 
 from brightdata.ready_scrapers.amazon import AmazonScraper
 from brightdata.base_specialized_scraper import ScrapeResult
+from brightdata.utils import poll_until_ready
+
 
 # ─────────────────────────────────────────────────────────────
 # 0.  credentials
@@ -58,43 +60,43 @@ def main():
 
 
 
-    def poll_until_ready(
-        scraper,
-        snapshot_id: str,
-        *,
-        poll: int = 10,        # seconds between checks
-        timeout: int = 600,    # give up after this many seconds
-    ) -> ScrapeResult:
-        """
-        Poll Bright Data until the job is ready or we hit *timeout*.
+    # def poll_until_ready(
+    #     scraper,
+    #     snapshot_id: str,
+    #     *,
+    #     poll: int = 10,        # seconds between checks
+    #     timeout: int = 600,    # give up after this many seconds
+    # ) -> ScrapeResult:
+    #     """
+    #     Poll Bright Data until the job is ready or we hit *timeout*.
 
-        Console log on every iteration:   [#3 | +31s]  not_ready
-        Returns a ScrapeResult; never raises.
-        """
-        start = time.time()
-        attempt = 0
+    #     Console log on every iteration:   [#3 | +31s]  not_ready
+    #     Returns a ScrapeResult; never raises.
+    #     """
+    #     start = time.time()
+    #     attempt = 0
 
-        while True:
-            attempt += 1
-            res: ScrapeResult = scraper.get_data(snapshot_id)
+    #     while True:
+    #         attempt += 1
+    #         res: ScrapeResult = scraper.get_data(snapshot_id)
 
-            elapsed = int(time.time() - start)
-            print(f"[#{attempt:<2} | +{elapsed:>4}s]  {res.status}")
+    #         elapsed = int(time.time() - start)
+    #         print(f"[#{attempt:<2} | +{elapsed:>4}s]  {res.status}")
 
-            # finished or failed
-            if res.status in {"ready", "error"}:
-                return res
+    #         # finished or failed
+    #         if res.status in {"ready", "error"}:
+    #             return res
 
-            # timeout?
-            if elapsed >= timeout:
-                return ScrapeResult(
-                    success=False,
-                    status="timeout",
-                    error=f"gave up after {timeout}s",
-                    data=None,
-                )
+    #         # timeout?
+    #         if elapsed >= timeout:
+    #             return ScrapeResult(
+    #                 success=False,
+    #                 status="timeout",
+    #                 error=f"gave up after {timeout}s",
+    #                 data=None,
+    #             )
 
-            time.sleep(poll)
+    #         time.sleep(poll)
 
     def show(label: str, snap_id: str):
         print(f"\n=== {label} ===  (snapshot: {snap_id})")

@@ -128,11 +128,11 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
         if self._RX_JOB.match(path):
             return "job"
         return None
-
-    def collect_people_by_url(self, urls: Sequence[str]) -> str:
+         
+    def people_profiles__collect_by_url(self, urls: Sequence[str]) -> str:
         """
         ---
-        endpoint: collect_people_by_url
+        endpoint: people_profiles__collect_by_url
         desc: Scrape individual LinkedIn profile pages.
         params:
           urls:
@@ -142,7 +142,7 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id; poll until ready to get list[dict].
         example: |
-          snap = scraper.collect_people_by_url([
+          snap = scraper.people_profiles__collect_by_url([
             "https://www.linkedin.com/in/elad-moshe-05a90413/"
           ])
         ---
@@ -153,11 +153,12 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
             dataset_id=_DATASET_PEOPLE,
             extra_params={"sync_mode": "async"},
         )
-
-    def discover_people_by_name(self, names: Sequence[str]) -> str:
+    
+    
+    def people_profiles__discover_by_name(self, names: Sequence[str]) -> str:
         """
         ---
-        endpoint: discover_people_by_name
+        endpoint: people_profiles__discover_by_name
         desc: Discover profile pages by full-name search.
         params:
           names:
@@ -167,7 +168,7 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id.
         example: |
-          snap = scraper.discover_people_by_name(["Elad Moshe", "Aviv Tal"])
+          snap = scraper.people_profiles__discover_by_name(["Elad Moshe", "Aviv Tal"])
         ---
         """
         payload = [{"name": n} for n in names]
@@ -181,10 +182,12 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
             },
         )
 
-    def collect_company_by_url(self, urls: Sequence[str]) -> str:
+
+    
+    def company_information__collect_by_url(self, urls: Sequence[str]) -> str:
         """
         ---
-        endpoint: collect_company_by_url
+        endpoint: company_information__collect_by_url
         desc: Scrape LinkedIn company pages.
         params:
           urls:
@@ -194,7 +197,7 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id.
         example: |
-          snap = scraper.collect_company_by_url([
+          snap = scraper.company_information__collect_by_url([
             "https://www.linkedin.com/company/bright-data"
           ])
         ---
@@ -206,10 +209,12 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
             extra_params={"sync_mode": "async"},
         )
 
-    def collect_jobs_by_url(self, urls: Sequence[str]) -> str:
+
+    
+    def job_listing_information__collect_by_url(self, urls: Sequence[str]) -> str:
         """
         ---
-        endpoint: collect_jobs_by_url
+        endpoint: job_listing_information__collect_by_url
         desc: Scrape individual LinkedIn job-post URLs.
         params:
           urls:
@@ -219,7 +224,7 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id.
         example: |
-          snap = scraper.collect_jobs_by_url([
+          snap = scraper.job_listing_information__collect_by_url([
             "https://www.linkedin.com/jobs/view/4181034038/"
           ])
         ---
@@ -231,10 +236,11 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
             extra_params={"sync_mode": "async"},
         )
 
-    def discover_jobs_by_keyword(self, queries: Sequence[Dict[str, Any]]) -> str:
+     
+    def job_listing_information__discover_by_keyword(self, queries: Sequence[Dict[str, Any]]) -> str:
         """
         ---
-        endpoint: discover_jobs_by_keyword
+        endpoint: job_listing_information__discover_by_keyword
         desc: Discover job listings via keyword / location search.
         params:
           queries:
@@ -248,7 +254,7 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
           type: str
           desc: snapshot_id.
         example: |
-          snap = scraper.discover_jobs_by_keyword([{
+          snap = scraper.job_listing_information__discover_by_keyword([{
             "location":"New York",
             "keyword":"Data Scientist",
             "country":"US"
@@ -264,6 +270,25 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
                 "sync_mode":   "async",
             },
         )
+    
+    def job_listing_information__discover_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+       pass
+    
+    def posts__collect_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+       pass
+    
+    def posts__discover_by_company_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+       pass
+    
+    def posts__discover_by_profile_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+       pass
+    def posts__discover_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+       pass
+    def people_search__collect_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
+       pass
+    
+
+        
 
     # no _trigger override needed; inherited from base
 
