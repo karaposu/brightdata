@@ -24,6 +24,8 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
+from collections import defaultdict
+from urllib.parse import urlparse
 
 # --------------------------------------------------------------------------- #
 # Static dataset-ids (taken from the cURL examples you provided)
@@ -45,6 +47,41 @@ class XScraper(BrightdataBaseSpecializedScraper):
     # ------------------------------------------------------------------ #
     def __init__(self, bearer_token: Optional[str] = None, **kw):
         super().__init__(_DATASET["profiles"], bearer_token, **kw)
+
+
+    def collect_by_url(self, urls: Sequence[str]) -> Dict[str, str]:
+        """
+        Smart dispatcher → calls the right collect method based on URL:
+
+          - Tweets (`/status/`) → `posts__collect_by_url`
+          - Profiles                → `profiles__collect_by_url`
+
+        Parameters
+        ----------
+        urls : sequence[str]
+            X.com URLs (either tweet links or profile pages)
+
+        Returns
+        -------
+        dict[str, str]
+            Mapping of each bucket name ("posts" or "profiles") to its
+            snapshot-id.
+        """
+        buckets: Dict[str, List[str]] = defaultdict(list)
+        for u in urls:
+            path = urlparse(u).path or ""
+            if "/status/" in path:
+                buckets["posts"].append(u)
+            else:
+                buckets["profiles"].append(u)
+
+        result: Dict[str, str] = {}
+        if buckets.get("posts"):
+            result["posts"] = self.posts__collect_by_url(buckets["posts"])
+        if buckets.get("profiles"):
+            result["profiles"] = self.profiles__collect_by_url(buckets["profiles"])
+        return result
+
 
     # ****************************************************************** #
     # 1.  POSTS  ▸  collect by URL
@@ -121,7 +158,7 @@ class XScraper(BrightdataBaseSpecializedScraper):
         max_posts : int | None
             How many recent tweets to include per profile.
             ``None`` ⇒ use Bright Data’s default (100).
-
+         
         Returns
         -------
         snapshot_id : str

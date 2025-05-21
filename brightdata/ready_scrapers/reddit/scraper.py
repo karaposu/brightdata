@@ -22,10 +22,11 @@ the JSON rows.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union, Dict
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
+from urllib.parse import urlparse
 
 # --------------------------------------------------------------------------- #
 # Static dataset-ids (taken from your sample API calls)
@@ -59,6 +60,40 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
     # ------------------------------------------------------------------ #
     def __init__(self, bearer_token: Optional[str] = None, **kw):
         super().__init__(_DATASET["posts"], bearer_token, **kw)
+
+    
+    def collect_by_url(
+        self,
+        urls: Sequence[str],
+    ) -> Union[str, Dict[str, str]]:
+        """
+        Auto-dispatch raw Reddit URLs to the right endpoint:
+
+        • URLs containing "/comment/" → comments__collect_by_url  
+        • everything else         → posts__collect_by_url
+
+        Returns a single snapshot-id if all URLs went to one bucket,
+        or a dict {"posts": id1, "comments": id2} if both were used.
+        """
+        post_urls = []
+        comment_urls = []
+        for u in urls:
+            path = urlparse(u).path
+            if "/comment/" in path:
+                comment_urls.append(u)
+            else:
+                post_urls.append(u)
+
+        results: Dict[str, str] = {}
+        if post_urls:
+            results["posts"] = self.posts__collect_by_url(post_urls)
+        if comment_urls:
+            results["comments"] = self.comments__collect_by_url(comment_urls)
+
+        # if only one bucket was used, return its snapshot-id directly
+        if len(results) == 1:
+            return next(iter(results.values()))
+        return results
 
     # ****************************************************************** #
     # 1.  posts__collect_by_url
