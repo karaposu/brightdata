@@ -5,7 +5,7 @@
 
 
 ``pip install brightdata``  →  one import away from grabbing JSON rows
-from Amazon, Instagram, LinkedIn, Tiktok, Youtube, Instagram and a lot more in a production grade way. 
+from Amazon, Instagram, LinkedIn, Tiktok, Youtube, Instagram, Reddit and a lot more in a production grade way. 
 
 (Scroll down in https://brightdata.com/products/web-scraper to see all custom scrapers )
 
@@ -72,11 +72,11 @@ With that you can all you have to do is feed the url.
 ```python
 from brightdata import trigger_scrape_url, scrape_url
 
-# or trigger+wait and get the actual data
-rows = scrape_url("https://www.amazon.com/dp/B0CRMZHDG8", bearer_token=TOKEN)
+# trigger+wait and get the actual data
+rows = scrape_url("https://www.amazon.com/dp/B0CRMZHDG8")
 
-# just get the snapshot ID 
-snap = trigger_scrape_url("https://www.amazon.com/dp/B0CRMZHDG8", bearer_token=TOKEN)
+# just get the snapshot ID so you can collect the data later
+snap = trigger_scrape_url("https://www.amazon.com/dp/B0CRMZHDG8")
 
 ```
 
@@ -90,6 +90,7 @@ it also works for sites which brightdata exposes several distinct “collect” 
 | *company page  – collect by URL*               | `collect_company_by_url()` |
 | *job post      – collect by URL*               | `collect_jobs_by_url()` |
 
+In each scraper there is a smart dispatcher method which calls the right method based on link structure. 
 
 ```python
 
