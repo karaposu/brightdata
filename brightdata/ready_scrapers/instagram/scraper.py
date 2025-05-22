@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+##here is ready_scrapers/instagram/scraper.py
 """
 brightdata.ready_scrapers.instagram.scraper
 ===========================================
@@ -375,4 +375,3 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
         )
 
 
-# __all__ = ["InstagramScraper"]

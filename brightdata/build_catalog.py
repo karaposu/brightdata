@@ -1,5 +1,8 @@
+# here is build_catalog.py
+
 #!/usr/bin/env python
 """
+# python -m 
 Collect YAML headers from scraper doc-strings ➜ catalog_for_ai_agents.json
 
 Add   --debug   (or set DEBUG=1) to see what the script finds.

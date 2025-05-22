@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#here is ready_scrapers/digikey/scraper.py
 from typing import Any, Dict, List, Sequence, Optional
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper

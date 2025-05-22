@@ -1,3 +1,5 @@
+#here is brightdata/base_specialized_scraper.py
+
 import requests
 import logging
 from dataclasses import dataclass
@@ -7,8 +9,10 @@ import os
 from typing import List
 import json
 import aiohttp
+from collections import defaultdict
 
-from typing import Dict, List, Any, Optional, Tuple
+
+from typing import Dict, List, Any, Optional, Tuple, Pattern
 
 logger = logging.getLogger(__name__)
 
@@ -446,3 +450,48 @@ class BrightdataBaseSpecializedScraper:
         else:
             # fallback
             return ScrapeResult(success=False, status="error", error="fetch_error", data=None)
+    
+
+    def dispatch_by_regex(
+        self,
+        urls: List[str],
+        pattern_map: Dict[str, Pattern],
+        *,
+        allow_multiple: bool = False,
+        unknown_bucket: str | None = None
+    ) -> Dict[str, List[str]]:
+        """
+        Bucket a list of URLs by regex patterns.
+
+        Parameters
+        ----------
+        urls         : List of raw URLs to classify
+        pattern_map  : Mapping { bucket_name: compiled_regex }
+        allow_multiple : if False (default), stops at first match; 
+                         if True, a URL can live in many buckets
+        unknown_bucket: if set, any URL that matches no pattern
+                        goes into this bucket; else they’re ignored
+
+        Side-effect
+        ----------
+        Sets self._url_buckets to the same returned dict.
+
+        Returns
+        -------
+        A dict { bucket_name: [urls…], … }
+        """
+       
+        buckets = defaultdict(list)
+        for url in urls:
+            matched = False
+            for name, rx in pattern_map.items():
+                if rx.search(url):
+                    buckets[name].append(url)
+                    matched = True
+                    if not allow_multiple:
+                        break
+            if not matched and unknown_bucket:
+                buckets[unknown_bucket].append(url)
+
+        self._url_buckets = dict(buckets)
+        return self._url_buckets

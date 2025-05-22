@@ -1,4 +1,4 @@
-# brightdata/registry.py  (patched)
+# brightdata/registry.py  
 from __future__ import annotations
 import importlib
 import pkgutil

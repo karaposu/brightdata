@@ -3,7 +3,6 @@
 
 ---
 
-
 ``pip install brightdata``  →  one import away from grabbing JSON rows
 from Amazon, Instagram, LinkedIn, Tiktok, Youtube, X, Reddit and more in a production-grade way.
 

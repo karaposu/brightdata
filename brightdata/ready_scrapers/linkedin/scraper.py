@@ -1,3 +1,5 @@
+# here is brightdata/ready_scrapers/linkedin/scraper
+
 #!/usr/bin/env python3
 """
 brightdata.ready_scrapers.linkedin.scraper

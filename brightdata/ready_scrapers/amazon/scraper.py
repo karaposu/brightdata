@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+#here is ready_scrapers/amazon/scraper.py
 from typing import Any, Dict, List, Optional, Sequence
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from collections import defaultdict
 from brightdata.registry import register
-
+import re
 
 
 @register("amazon")
@@ -33,6 +33,15 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
         "search":            "gd_lwdb4vjm1ehb499uxs",
     }
 
+      # ① Define URL‐types → regex once
+    PATTERNS = {
+          "product": re.compile(r"/dp/|/gp/product/"),
+          "review":  re.compile(r"/product-reviews/"),
+          "seller":  re.compile(r"/sp[\?&]seller="),
+          "search":  re.compile(r"/s\?"),
+      }
+
+    
     def __init__(self, bearer_token: Optional[str] = None, **kw):
         super().__init__(
             self._DATASET["collect"],  # default for connectivity checks
@@ -49,58 +58,77 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
     # reviews__collect_by_url
     # sellers_info__collect_by_url
     # products_search__collect_by_url
-
-    
-    # ═══════════════════════════════════════════════════════════════════ #
-    # 0.  SMART ROUTER  ▸  collect_by_url()
-    # ═══════════════════════════════════════════════════════════════════ #
     def collect_by_url(self, urls: Sequence[str], **kw) -> Dict[str, str]:
-        """
-        High-level “just scrape it” helper.
+        # Bucket URLs by the patterns you just defined
+        buckets = self.dispatch_by_regex(urls, self.PATTERNS)
 
-        It inspects each input URL, detects its type and forwards the sub-list
-        to one of the specialised methods below.
-
-        Parameters
-        ----------
-        urls : sequence[str]
-            A mix of product, review, seller and search URLs.
-
-        Returns
-        -------
-        dict[str, str]
-            Keys: ``product | review | seller | search``  
-            Values: snapshot-ids returned by the respective endpoints.
-
-        Notes
-        -----
-        *The mapping ‹type → original-URLs› is stored on the instance under
-        ``self._url_buckets`` so that external helpers (e.g. *scrape_url*) can
-        reconcile results.*
-        """
-        buckets: DefaultDict[str, List[str]] = defaultdict(list)
-
-        for u in urls:
-            if   _RX_PRODUCT.search(u): buckets["product"].append(u)
-            elif _RX_REVIEW.search(u):  buckets["review"].append(u)
-            elif _RX_SELLER.search(u):  buckets["seller"].append(u)
-            elif _RX_SEARCH.search(u):  buckets["search"].append(u)
-            else:
-                raise ValueError(f"Unrecognised Amazon URL: {u}")
-
-        self._url_buckets: Dict[str, List[str]] = dict(buckets)  # expose
+        # Fail fast if any URL didn’t match
+        unmatched = set(urls) - {u for lst in buckets.values() for u in lst}
+        if unmatched:
+            raise ValueError(f"Unrecognised Amazon URL(s): {unmatched}")
 
         out: Dict[str, str] = {}
-        if buckets.get("product"):
+        if "product" in buckets:
             out["product"] = self.products__collect_by_url(buckets["product"], **kw)
-        if buckets.get("review"):
-            out["review"]  = self.reviews__collect_by_url(buckets["review"], **kw)   # stub
-        if buckets.get("seller"):
-            out["seller"]  = self.sellers_info__collect_by_url(buckets["seller"], **kw)  # stub
-        if buckets.get("search"):
+        if "review" in buckets:
+            out["review"]  = self.reviews__collect_by_url(buckets["review"], **kw)
+        if "seller" in buckets:
+            out["seller"]  = self.sellers_info__collect_by_url(buckets["seller"], **kw)
+        if "search" in buckets:
             out["search"]  = self.products_search__collect_by_url(buckets["search"], **kw)
 
         return out
+    
+    # # ═══════════════════════════════════════════════════════════════════ #
+    # # 0.  SMART ROUTER  ▸  collect_by_url()
+    # # ═══════════════════════════════════════════════════════════════════ #
+    # def collect_by_url(self, urls: Sequence[str], **kw) -> Dict[str, str]:
+    #     """
+    #     High-level “just scrape it” helper.
+
+    #     It inspects each input URL, detects its type and forwards the sub-list
+    #     to one of the specialised methods below.
+
+    #     Parameters
+    #     ----------
+    #     urls : sequence[str]
+    #         A mix of product, review, seller and search URLs.
+
+    #     Returns
+    #     -------
+    #     dict[str, str]
+    #         Keys: ``product | review | seller | search``  
+    #         Values: snapshot-ids returned by the respective endpoints.
+
+    #     Notes
+    #     -----
+    #     *The mapping ‹type → original-URLs› is stored on the instance under
+    #     ``self._url_buckets`` so that external helpers (e.g. *scrape_url*) can
+    #     reconcile results.*
+    #     """
+    #     buckets: DefaultDict[str, List[str]] = defaultdict(list)
+
+    #     for u in urls:
+    #         if   _RX_PRODUCT.search(u): buckets["product"].append(u)
+    #         elif _RX_REVIEW.search(u):  buckets["review"].append(u)
+    #         elif _RX_SELLER.search(u):  buckets["seller"].append(u)
+    #         elif _RX_SEARCH.search(u):  buckets["search"].append(u)
+    #         else:
+    #             raise ValueError(f"Unrecognised Amazon URL: {u}")
+
+    #     self._url_buckets: Dict[str, List[str]] = dict(buckets)  # expose
+
+    #     out: Dict[str, str] = {}
+    #     if buckets.get("product"):
+    #         out["product"] = self.products__collect_by_url(buckets["product"], **kw)
+    #     if buckets.get("review"):
+    #         out["review"]  = self.reviews__collect_by_url(buckets["review"], **kw)   # stub
+    #     if buckets.get("seller"):
+    #         out["seller"]  = self.sellers_info__collect_by_url(buckets["seller"], **kw)  # stub
+    #     if buckets.get("search"):
+    #         out["search"]  = self.products_search__collect_by_url(buckets["search"], **kw)
+
+    #     return out
 
     def products__collect_by_url(
         self,
