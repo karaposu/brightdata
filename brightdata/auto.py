@@ -30,7 +30,7 @@ Snapshot = Union[str, Dict[str, str]]
 ResultData = Union[Rows, Dict[str, Rows], ScrapeResult]
 
 
-def scrape_trigger_url(
+def trigger_scrape_url(
     url: str,
     bearer_token: str | None = None,
 ) -> Snapshot:
@@ -84,7 +84,7 @@ def scrape_url(
         Dict[str, List[dict]]  mapping bucket → rows
       or Dict[str, ScrapeResult]
     """
-    snap = scrape_trigger_url(url, bearer_token=bearer_token)
+    snap = trigger_scrape_url(url, bearer_token=bearer_token)
     token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
     ScraperCls = get_scraper_for(url)
 
