@@ -30,7 +30,7 @@ Snapshot = Union[str, Dict[str, str]]
 ResultData = Union[Rows, Dict[str, Rows], ScrapeResult]
 
 
-def trigger_scrape_url(
+def scrape_trigger_url(
     url: str,
     bearer_token: str | None = None,
 ) -> Snapshot:
