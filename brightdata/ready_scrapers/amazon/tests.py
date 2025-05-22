@@ -30,11 +30,25 @@ if not TOKEN:
 
 
 def main():
+
+
     
     ## ─────────────────────────────────────────────────────────────
     # 1.  initialise one scraper instance
     # ─────────────────────────────────────────────────────────────
     scraper = AmazonScraper()
+
+
+    # ─────────────────────────────────────────────────────────────
+    # 6.  SMART ROUTER  ▸  collect_by_url()
+    # ─────────────────────────────────────────────────────────────
+    mixed_urls = [
+        "https://www.amazon.com/dp/B0CRMZHDG8",          # product
+        "https://www.amazon.com/s?k=headphones",         # search
+    ]
+    snap_map = scraper.collect_by_url(mixed_urls)
+    for bucket, sid in snap_map.items():
+        poll_until_ready_and_show(scraper, f"collect_by_url ▸ {bucket}", sid)
     
     # ─────────────────────────────────────────────────────────────
     # 2.  PRODUCTS ▸ COLLECT BY URL
@@ -80,16 +94,7 @@ def main():
     )
     poll_until_ready_and_show(scraper,"products_search__collect_by_url", snap)
 
-    # ─────────────────────────────────────────────────────────────
-    # 6.  SMART ROUTER  ▸  collect_by_url()
-    # ─────────────────────────────────────────────────────────────
-    mixed_urls = [
-        "https://www.amazon.com/dp/B0CRMZHDG8",          # product
-        "https://www.amazon.com/s?k=headphones",         # search
-    ]
-    snap_map = scraper.collect_by_url(mixed_urls)
-    for bucket, sid in snap_map.items():
-        poll_until_ready_and_show(f"collect_by_url ▸ {bucket}", sid)
+    
 
 
 

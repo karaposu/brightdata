@@ -66,7 +66,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
         unmatched = set(urls) - {u for lst in buckets.values() for u in lst}
         if unmatched:
             raise ValueError(f"Unrecognised Amazon URL(s): {unmatched}")
-
+       
         out: Dict[str, str] = {}
         if "product" in buckets:
             out["product"] = self.products__collect_by_url(buckets["product"], **kw)

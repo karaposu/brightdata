@@ -1,6 +1,10 @@
 
 ![BrightData Logo](https://raw.githubusercontent.com/karaposu/brightdata/refs/heads/main/brightdata.png)
 
+|             |                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Package** | [![PyPI Latest Release](https://img.shields.io/pypi/v/brightdata.svg)](https://pypi.org/project/brightdata/) [![PyPI Downloads](https://img.shields.io/pypi/dm/brightdata.svg?label=PyPI%20downloads)](https://pypi.org/project/brightdata/) |
+
 ---
 
 ``pip install brightdata``  →  one import away from grabbing JSON rows
