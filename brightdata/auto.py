@@ -99,7 +99,7 @@ def scrape_url(
             res = poll_until_ready(
                 scraper,
                 sid,
-                interval=poll_interval,
+                poll=poll_interval,
                 timeout=poll_timeout,
             )
             if res.status == "ready":
@@ -113,7 +113,7 @@ def scrape_url(
     res = poll_until_ready(
         scraper,
         snap,
-        interval=poll_interval,
+        poll=poll_interval,
         timeout=poll_timeout,
     )
     if res.status == "ready":

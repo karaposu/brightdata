@@ -5,7 +5,7 @@ import os
 
 setup(
     name='brightdata',  # Package name
-    version='0.1.3',  # Version of your package
+    version='0.1.4',  # Version of your package
     author='Enes Kuzucu',  # Your name
     
     description='Easy to use comprehensive wrapper for brightdata data scraper APIs',  # Short description
