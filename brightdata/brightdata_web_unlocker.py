@@ -1,6 +1,7 @@
 import os
 import requests
 from dotenv import load_dotenv
+import pathlib
 
 class BrightdataWebUnlocker:
     def __init__(self, BRIGHTDATA_WEBUNCLOKCER_BEARER=None, ZONE_STRING=None):
@@ -15,6 +16,40 @@ class BrightdataWebUnlocker:
             self.zone =ZONE_STRING
 
         self.format = "raw"
+
+
+    def download_source(self, site: str, filename: str):
+        """
+        Fetches the unlocked HTML for `site` and writes it to `filename` (UTF-8).
+        """
+        source = self.get_source(site)
+        # Create parent directories if they don’t exist
+        import pathlib
+        filepath = pathlib.Path(filename)
+        if not filepath.parent.exists():
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        with filepath.open("w", encoding="utf-8") as f:
+            f.write(source)
+
+    
+    def download_source_safe(self, site: str, filename: str) -> bool:
+        """
+        Attempts to fetch and save unlocked HTML via get_source_safe.
+        Returns True on success, False on any error.
+        """
+        source = self.get_source_safe(site)
+        if source is False:
+            return False
+
+        # Ensure parent directories exist
+        path = pathlib.Path(filename)
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+        with path.open("w", encoding="utf-8") as f:
+            f.write(source)
+        return True
 
         
 

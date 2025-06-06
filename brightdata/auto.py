@@ -134,6 +134,9 @@ def scrape_url(
     snap = trigger_scrape_url(url, bearer_token=bearer_token)
     token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
     ScraperCls = get_scraper_for(url)
+
+    if ScraperCls is None:
+         return None
     
     if not poll:
         return snap
