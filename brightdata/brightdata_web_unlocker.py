@@ -6,7 +6,7 @@ class BrightdataWebUnlocker:
     def __init__(self):
         load_dotenv()  # Load the environment variables from .env
         self.bearer = os.getenv('BRIGHTDATA_WEBUNCLOKCER_BEARER')
-
+        
         self.zone = os.getenv('BRIGHTDATA_WEBUNCLOKCER_APP_ZONE_STRING')
         self.format = "raw"
 

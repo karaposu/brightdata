@@ -33,6 +33,8 @@ ResultData = Union[Rows, Dict[str, Rows], ScrapeResult]
 def trigger_scrape_url(
     url: str,
     bearer_token: str | None = None,
+    throw_a_value_error_if_not_a_known_scraper=False, 
+    fallback_to_web_unlocker=False
 ) -> Snapshot:
     """
     Detect and instantiate the right scraper for `url`, call its
@@ -44,9 +46,17 @@ def trigger_scrape_url(
         raise RuntimeError("Provide bearer_token or set BRIGHTDATA_TOKEN env var")
 
     ScraperCls = get_scraper_for(url)
-    if ScraperCls is None:
-        raise ValueError(f"No scraper registered for {url}")
 
+    
+    if ScraperCls is None:
+        if  throw_a_value_error_if_not_a_known_scraper:
+                 raise ValueError(f"No scraper registered for {url}")
+        else: 
+            if fallback_to_web_unlocker:
+                pass
+            else:
+                return None 
+   
     scraper = ScraperCls(bearer_token=token)
     if not hasattr(scraper, "collect_by_url"):
         raise ValueError(f"{ScraperCls.__name__} does not implement collect_by_url()")
@@ -87,10 +97,10 @@ def scrape_url(
     snap = trigger_scrape_url(url, bearer_token=bearer_token)
     token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
     ScraperCls = get_scraper_for(url)
-
+    
     if not poll:
         return snap
-
+    
     # Multi‐bucket case (e.g. LinkedIn returns {"people": id1, ...})
     if isinstance(snap, dict):
         results: Dict[str, Any] = {}
