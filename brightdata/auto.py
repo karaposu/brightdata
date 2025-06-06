@@ -22,6 +22,9 @@ from typing import Any, Dict, List, Union
 from brightdata.registry import get_scraper_for
 from brightdata.utils.poll import poll_until_ready
 from brightdata.base_specialized_scraper import ScrapeResult
+from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+
+
 
 load_dotenv()
 
@@ -30,11 +33,47 @@ Snapshot = Union[str, Dict[str, str]]
 ResultData = Union[Rows, Dict[str, Rows], ScrapeResult]
 
 
+
+def trigger_scrape_url_with_fallback(
+    url: str,
+    bearer_token: str | None = None,
+    throw_a_value_error_if_not_a_known_scraper=False, 
+) -> Snapshot:
+    """
+    Detect and instantiate the right scraper for `url`, call its
+    collect_by_url([...]) method, and return the raw snapshot‐id
+    (or dict of snapshot‐ids).
+    """
+    token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
+    if not token:
+        raise RuntimeError("Provide bearer_token or set BRIGHTDATA_TOKEN env var")
+
+    ScraperCls = get_scraper_for(url)
+
+    if ScraperCls is None:
+        if  throw_a_value_error_if_not_a_known_scraper:
+                 raise ValueError(f"No scraper registered for {url}")
+        else: 
+            # if fallback_to_web_unlocker:
+            unlocker = BrightdataWebUnlocker()
+            source = unlocker.get_source(url)
+            return None, source
+            
+            # else:
+            #     return None ,None
+   
+    scraper = ScraperCls(bearer_token=token)
+    if not hasattr(scraper, "collect_by_url"):
+        raise ValueError(f"{ScraperCls.__name__} does not implement collect_by_url()")
+    
+    # Returns either a str snapshot_id or a dict of them
+    return scraper.collect_by_url([url]), None
+
 def trigger_scrape_url(
     url: str,
     bearer_token: str | None = None,
     throw_a_value_error_if_not_a_known_scraper=False, 
-    fallback_to_web_unlocker=False
+    # fallback_to_web_unlocker=False
 ) -> Snapshot:
     """
     Detect and instantiate the right scraper for `url`, call its
@@ -52,11 +91,9 @@ def trigger_scrape_url(
         if  throw_a_value_error_if_not_a_known_scraper:
                  raise ValueError(f"No scraper registered for {url}")
         else: 
-            if fallback_to_web_unlocker:
-                pass
-            else:
+  
                 return None 
-   
+    
     scraper = ScraperCls(bearer_token=token)
     if not hasattr(scraper, "collect_by_url"):
         raise ValueError(f"{ScraperCls.__name__} does not implement collect_by_url()")

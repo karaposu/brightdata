@@ -3,12 +3,20 @@ import requests
 from dotenv import load_dotenv
 
 class BrightdataWebUnlocker:
-    def __init__(self):
+    def __init__(self, BRIGHTDATA_WEBUNCLOKCER_BEARER=None, ZONE_STRING=None):
         load_dotenv()  # Load the environment variables from .env
-        self.bearer = os.getenv('BRIGHTDATA_WEBUNCLOKCER_BEARER')
         
+        self.bearer = os.getenv('BRIGHTDATA_WEBUNCLOKCER_BEARER')
         self.zone = os.getenv('BRIGHTDATA_WEBUNCLOKCER_APP_ZONE_STRING')
+
+        if BRIGHTDATA_WEBUNCLOKCER_BEARER:
+            self.bearer =BRIGHTDATA_WEBUNCLOKCER_BEARER
+        if ZONE_STRING:
+            self.zone =ZONE_STRING
+
         self.format = "raw"
+
+        
 
     def get_source_safe(self, target_weblink):
         """
