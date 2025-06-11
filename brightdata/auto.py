@@ -29,6 +29,7 @@ import asyncio
 from brightdata.utils.async_poll import fetch_snapshot_async, fetch_snapshots_async
 
 from brightdata.models import ScrapeResult
+import tldextract
 
 
 
@@ -114,14 +115,14 @@ def scrape_url(
     bearer_token: str | None = None,
     poll_interval: int = 8,
     poll_timeout: int = 180,
-) -> ScrapeResponse:
+) -> ScrapeResult:
     """
     Triggers a scrape and waits for it to finish, returning a
     ScrapeResponse with data, cost, and fallback info.
     """
     ScraperCls = get_scraper_for(url)
     if ScraperCls is None:
-        return ScrapeResponse(
+        return ScrapeResult(
             url=url,
             status="error",
             data=None,
@@ -153,7 +154,7 @@ def scrape_url(
         # new_data = BrowserAPI(...).get_page_source_and_wait(url)
         # return early or merge new_data into data
 
-    return ScrapeResponse(
+    return ScrapeResult(
         url=url,
         status=res.status,
         data=res.data if res.status == "ready" else None,
