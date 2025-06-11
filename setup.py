@@ -5,10 +5,10 @@ import os
 
 setup(
     name='brightdata',  # Package name
-    version='0.1.9',  # Version of your package
+    version='0.2.0',  # Version of your package
     author='Enes Kuzucu',  # Your name
     
-    description='Easy to use comprehensive wrapper for brightdata data scraper APIs',  # Short description
+    description='Easy to use comprehensive wrapper for brightdata *scrapers, web unlocker, browser) APIs',  # Short description
     long_description=open('README.md').read(),  # Long description from a README file
     long_description_content_type='text/markdown',  # Type of the long description
     

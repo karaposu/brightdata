@@ -23,6 +23,7 @@ from brightdata.registry import get_scraper_for
 from brightdata.utils.poll import poll_until_ready
 from brightdata.base_specialized_scraper import ScrapeResult
 from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+from brightdata.browser_api import BrowserAPI
 
 
 
@@ -105,9 +106,10 @@ def trigger_scrape_url(
 def scrape_url(
     url: str,
     bearer_token: str | None = None,
-    poll: bool = True,
+    # poll: bool = True,
     poll_interval: int = 8,
     poll_timeout: int = 180,
+    fallback_to_browser_api= False
 ) -> ResultData:
     """
     High-level scrape: trigger + (optionally) wait for data.
@@ -116,10 +118,9 @@ def scrape_url(
     ----------
     url           – a single URL to scrape
     bearer_token  – your Bright Data token (or set BRIGHTDATA_TOKEN)
-    poll          – if True, block until ready; else return snapshot_id
     poll_interval – seconds between status checks
     poll_timeout  – maximum seconds to wait per snapshot
-
+    
     Returns
     -------
     • If poll=False:
@@ -134,12 +135,31 @@ def scrape_url(
     snap = trigger_scrape_url(url, bearer_token=bearer_token)
     token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
     ScraperCls = get_scraper_for(url)
-
+     
     if ScraperCls is None:
-         return None
+        
+        if fallback_to_browser_api:
+            api = BrowserAPI()
+            html_hydrated = api.get_page_source_with_a_delay(url)
+            if html_hydrated:
+                sr= ScrapeResult(
+                    success=True, 
+                    status="ready", 
+                    data=html_hydrated
+                )
+            else:
+                sr= ScrapeResult(
+                    success=False, 
+                    status="error", 
+                    data=html_hydrated, 
+                    error="unknown_browser_api_error"
+                )
+            return sr
+        else:
+
+               return None
     
-    if not poll:
-        return snap
+    
     
     # Multi‐bucket case (e.g. LinkedIn returns {"people": id1, ...})
     if isinstance(snap, dict):
