@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Sequence, Optional
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
 from urllib.parse import urlparse
+import asyncio
 
 
 # {"url":"https://www.instagram.com/cats_of_instagram/reel/C4GLo_eLO2e/"},
@@ -375,3 +376,151 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
         )
 
 
+
+
+
+    async def collect_by_url_async(
+        self,
+        urls: Sequence[str],
+        *,
+        include_comments: bool = False
+    ) -> Dict[str, str]:
+        """
+        Async version of collect_by_url:
+          1. bucket URLs → profiles/posts/reels/comments
+          2. trigger each bucket async → return {bucket: snapshot_id}
+        """
+        # 1) Bucket
+        profiles, posts, reels, comments = [], [], [], []
+        for url in urls:
+            path = urlparse(url).path.lower()
+            if "/reel/" in path:
+                (comments if include_comments else reels).append(url)
+            elif "/p/" in path:
+                (comments if include_comments else posts).append(url)
+            else:
+                profiles.append(url)
+
+        tasks: Dict[str, asyncio.Task[str]] = {}
+        if profiles:
+            tasks["profiles"] = asyncio.create_task(
+                self._trigger_async(
+                    [{"url": u} for u in profiles],
+                    dataset_id=_DATASET["profiles"]
+                )
+            )
+        if posts:
+            tasks["posts"] = asyncio.create_task(
+                self._trigger_async(
+                    [{"url": u} for u in posts],
+                    dataset_id=_DATASET["posts"]
+                )
+            )
+        if reels:
+            tasks["reels"] = asyncio.create_task(
+                self._trigger_async(
+                    [{"url": u} for u in reels],
+                    dataset_id=_DATASET["reels"]
+                )
+            )
+        if comments:
+            payload = [
+                {"url": u, "days_back": "", "load_all_replies": False, "comment_limit": ""}
+                for u in comments
+            ]
+            tasks["comments"] = asyncio.create_task(
+                self._trigger_async(
+                    payload,
+                    dataset_id=_DATASET["comments"]
+                )
+            )
+
+        # 2) Gather
+        results = await asyncio.gather(*tasks.values())
+        return dict(zip(tasks.keys(), results))
+
+
+    async def profiles__collect_by_url_async(
+        self,
+        urls: Sequence[str]
+    ) -> str:
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET["profiles"]
+        )
+
+
+    async def posts__collect_by_url_async(
+        self,
+        urls: Sequence[str]
+    ) -> str:
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET["posts"]
+        )
+
+
+    async def posts__discover_by_url_async(
+        self,
+        queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET["posts"],
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "url",
+            }
+        )
+
+
+    async def reels__collect_by_url_async(self, urls: Sequence[str]) -> str:
+        """
+        Stub: like posts__collect, but reels endpoint collects metadata instead.
+        """
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET["reels"]
+        )
+
+
+    async def reels__discover_by_url_async(
+        self,
+        queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET["reels"],
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "url",
+            }
+        )
+
+
+    async def reels__discover_by_url_all_reels_async(
+        self,
+        queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET["reels"],
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "url_all_reels",
+            }
+        )
+
+
+    async def comments__collect_by_url_async(
+        self,
+        post_urls: Sequence[str]
+    ) -> str:
+        payload = [{"url": u} for u in post_urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET["comments"]
+        )

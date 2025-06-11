@@ -273,120 +273,54 @@ class BrightdataBaseSpecializedScraper:
                          dataset_id, e)
             return None
         
-    async def _fetch_result_async(
-        self,
-        snapshot_id: str,
-        session: aiohttp.ClientSession
-    ) -> ScrapeResult:
-        """
-        Non-blocking version of _fetch_result(), returns a fully populated ScrapeResult.
-        """
-        result_url = f"{self.result_base_url}/{snapshot_id}?format=json"
+
+
+
+    async def _fetch_result_async(self, snapshot_id: str,
+                              session: aiohttp.ClientSession) -> ScrapeResult:
+        """non-blocking version of _fetch_result()"""
+        url = f"{self.result_base_url}/{snapshot_id}?format=json"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         try:
-            async with session.get(result_url, headers=headers, timeout=30) as resp:
+            async with session.get(url, headers=headers, timeout=30) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-                return self._make_result(
-                    success=True,
-                    url=result_url,
-                    status="ready",
-                    data=data,
-                    snapshot_id=snapshot_id
-                )
+                return ScrapeResult(True, "ready", data=data)
+
         except aiohttp.ClientResponseError as e:
-            return self._make_result(
-                success=False,
-                url=result_url,
-                status="error",
-                error=f"http_{e.status}",
-                snapshot_id=snapshot_id
-            )
-        except Exception:
-            return self._make_result(
-                success=False,
-                url=result_url,
-                status="error",
-                error="fetch_error",
-                snapshot_id=snapshot_id
-            )
+            return ScrapeResult(False, "error", error=f"http_{e.status}")
+        except Exception as e:
+            return ScrapeResult(False, "error", error=str(e))
 
 
-
-    # async def _fetch_result_async(self, snapshot_id: str,
-    #                           session: aiohttp.ClientSession) -> ScrapeResult:
-    #     """non-blocking version of _fetch_result()"""
-    #     url = f"{self.result_base_url}/{snapshot_id}?format=json"
-    #     headers = {"Authorization": f"Bearer {self.bearer_token}"}
-
-    #     try:
-    #         async with session.get(url, headers=headers, timeout=30) as resp:
-    #             resp.raise_for_status()
-    #             data = await resp.json()
-    #             return ScrapeResult(True, "ready", data=data)
-
-    #     except aiohttp.ClientResponseError as e:
-    #         return ScrapeResult(False, "error", error=f"http_{e.status}")
-    #     except Exception as e:
-    #         return ScrapeResult(False, "error", error=str(e))
-
-
-    async def get_data_async(
-        self,
-        snapshot_id: str,
-        session: aiohttp.ClientSession
-    ) -> ScrapeResult:
+    async def get_data_async(self, snapshot_id: str,
+                            session: aiohttp.ClientSession) -> ScrapeResult:
         """
-        Async twin of get_data(); never blocks the event loop.
-        Returns a fully populated ScrapeResult.
+        Async twin of get_data(); *never* blocks the event loop.
         """
-        status_url = f"{self.status_base_url}/{snapshot_id}"
+        url = f"{self.status_base_url}/{snapshot_id}"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         try:
-            async with session.get(status_url, headers=headers, timeout=20) as resp:
+            async with session.get(url, headers=headers, timeout=20) as resp:
                 resp.raise_for_status()
                 state = await resp.json()
+
         except aiohttp.ClientResponseError as e:
-            return self._make_result(
-                success=False,
-                url=status_url,
-                status="error",
-                error=f"http_{e.status}",
-                snapshot_id=snapshot_id
-            )
-        except Exception:
-            return self._make_result(
-                success=False,
-                url=status_url,
-                status="error",
-                error="fetch_error",
-                snapshot_id=snapshot_id
-            )
+            return ScrapeResult(False, "error", error=f"http_{e.status}")
+        except Exception as e:
+            return ScrapeResult(False, "error", error=str(e))
 
-        current_status = state.get("status", "unknown").lower()
-
-        if current_status == "ready":
-            # Delegate to the async fetch
+        status = state.get("status", "unknown").lower()
+        if status == "ready":
             return await self._fetch_result_async(snapshot_id, session)
+        if status in {"error", "failed"}:
+            return ScrapeResult(False, "error", error="job_failed")
+        return ScrapeResult(True, status)          # not_ready / in_progress    
+    
 
-        if current_status in {"error", "failed"}:
-            return self._make_result(
-                success=False,
-                url=status_url,
-                status="error",
-                error="job_failed",
-                snapshot_id=snapshot_id
-            )
 
-        # in progress / not ready
-        return self._make_result(
-            success=True,
-            url=status_url,
-            status="not_ready",
-            snapshot_id=snapshot_id
-        )
     
 
     
@@ -532,6 +466,11 @@ class BrightdataBaseSpecializedScraper:
     #         return ScrapeResult(success=True, status="not_ready", data=None)
 
     def _fetch_result(self, bd_snapshot_id: str) -> ScrapeResult:
+        """
+        Fetches the final JSON from the Bright Data result endpoint:
+          GET /snapshot/{bd_snapshot_id}?format=json
+        Returns a ScrapeResult with the final data or an appropriate error.
+        """
         result_url = f"{self.result_base_url}/{bd_snapshot_id}?format=json"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
@@ -539,39 +478,19 @@ class BrightdataBaseSpecializedScraper:
             resp = requests.get(result_url, headers=headers, timeout=15)
             resp.raise_for_status()
             data = resp.json()
-            return self._make_result(
-                success=True,
-                url=result_url,
-                status="ready",
-                data=data,
-                snapshot_id=bd_snapshot_id
-            )
+            return ScrapeResult(success=True, status="ready", data=data)
         except requests.exceptions.HTTPError as e:
-            mapped = self._map_http_error(e)
-            return self._make_result(
-                success=False,
-                url=result_url,
-                status="error",
-                error=mapped.error,
-                snapshot_id=bd_snapshot_id
-            )
-        except requests.exceptions.RequestException:
-            return self._make_result(
-                success=False,
-                url=result_url,
-                status="error",
-                error="fetch_error",
-                snapshot_id=bd_snapshot_id
-            )
-        except Exception:
-            return self._make_result(
-                success=False,
-                url=result_url,
-                status="error",
-                error="fetch_error",
-                snapshot_id=bd_snapshot_id
-            )
-    
+            # Distinguish error codes
+            error_result = self._map_http_error(e)
+            logger.debug(f"HTTP Error while fetching result: {e}")
+            return error_result
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Request Error while fetching result: {str(e)}")
+            return ScrapeResult(success=False, status="error", error="fetch_error", data=None)
+        except Exception as e:
+            logger.debug(f"Unexpected error while fetching result: {str(e)}")
+            return ScrapeResult(success=False, status="error", error="fetch_error", data=None)
+
     def _map_http_error(self, e: requests.exceptions.HTTPError) -> ScrapeResult:
         """
         Helper to map HTTPError status codes to specific error labels
@@ -652,7 +571,7 @@ class BrightdataBaseSpecializedScraper:
         # extract the second-level domain
         ext = tldextract.extract(url)
         root = ext.domain or None
-        
+
         return ScrapeResult(
             success=success,
             url=url,
@@ -664,30 +583,3 @@ class BrightdataBaseSpecializedScraper:
             fallback_used=fallback_used,
             root_domain=root,
         )
-    
-    async def _trigger_async(
-        self,
-        payload: List[Dict[str, Any]],
-        *,
-        dataset_id: str,
-        include_errors: bool = True,
-        extra_params: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
-        """
-        Non-blocking POST to /trigger returning snapshot_id.
-        """
-        url = "https://api.brightdata.com/datasets/v3/trigger"
-        params = {
-            "dataset_id": dataset_id,
-            "include_errors": str(include_errors).lower(),
-            "format": "json",
-            **(extra_params or {}),
-            "sync_mode": "async",
-        }
-        headers = {"Authorization": f"Bearer {self.bearer_token}", "Content-Type": "application/json"}
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload, params=params) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                return data.get("snapshot_id")

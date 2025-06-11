@@ -5,6 +5,7 @@ from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from collections import defaultdict
 from brightdata.registry import register
 import re
+import asyncio
 
 
 @register("amazon")
@@ -61,12 +62,12 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
     def collect_by_url(self, urls: Sequence[str], **kw) -> Dict[str, str]:
         # Bucket URLs by the patterns you just defined
         buckets = self.dispatch_by_regex(urls, self.PATTERNS)
-
+        
         # Fail fast if any URL didn’t match
         unmatched = set(urls) - {u for lst in buckets.values() for u in lst}
         if unmatched:
             raise ValueError(f"Unrecognised Amazon URL(s): {unmatched}")
-       
+        
         out: Dict[str, str] = {}
         if "product" in buckets:
             out["product"] = self.products__collect_by_url(buckets["product"], **kw)
@@ -76,7 +77,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
             out["seller"]  = self.sellers_info__collect_by_url(buckets["seller"], **kw)
         if "search" in buckets:
             out["search"]  = self.products_search__collect_by_url(buckets["search"], **kw)
-
+        
         return out
     
     # # ═══════════════════════════════════════════════════════════════════ #
@@ -129,7 +130,7 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
     #         out["search"]  = self.products_search__collect_by_url(buckets["search"], **kw)
 
     #     return out
-
+    
     def products__collect_by_url(
         self,
         urls: Sequence[str],
@@ -290,5 +291,165 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
             for i, kw in enumerate(keywords)
         ]
         return self._trigger(payload, dataset_id=self._DATASET["search"])
+    
+
+
+# ASYNC methods: 
+
+
+
+    async def collect_by_url_async(
+        self,
+        urls: Sequence[str],
+        zipcodes: Optional[Sequence[str]] = None,
+    ) -> Dict[str, str]:
+        """
+        Async version of collect_by_url: bucket URLs, trigger each job async,
+        and return a mapping { bucket_name: snapshot_id }.
+        """
+        # 1) classify
+        buckets = self.dispatch_by_regex(urls, self.PATTERNS)
+        unmatched = set(urls) - {u for bl in buckets.values() for u in bl}
+        if unmatched:
+            raise ValueError(f"Unrecognised Amazon URL(s): {unmatched}")
+
+        # 2) fire off all triggers concurrently
+        tasks: Dict[str, asyncio.Task[str]] = {}
+        for bucket, ulist in buckets.items():
+            # build payload & pick dataset key
+            if bucket == "product":
+                payload = [
+                    {"url": u, "zipcode": (zipcodes or [""] * len(ulist))[i]}
+                    for i, u in enumerate(ulist)
+                ]
+                dataset_id = self._DATASET["collect"]
+            elif bucket == "search":
+                payload = [
+                    {"keyword": k, "url": u, "pages_to_search": p}
+                    for (k, u, p) in zip(ulist, self.config.get("domains", [""]*len(ulist)), self.config.get("pages", [1]*len(ulist)))
+                ]
+                dataset_id = self._DATASET["search"]
+            elif bucket == "review":
+                # stub: adjust when implemented
+                payload = [{"url": u} for u in ulist]
+                dataset_id = self._DATASET["collect"]
+            elif bucket == "seller":
+                payload = [{"url": u} for u in ulist]
+                dataset_id = self._DATASET["collect"]
+            else:
+                # fallback for discover_category or keyword
+                payload = ([
+                    {"url": url, "sort_by": s, "zipcode": z}
+                    for (url, s, z) in zip(
+                        ulist,
+                        self.config.get("sorts", [""]*len(ulist)),
+                        self.config.get("zipcodes", [""]*len(ulist)),
+                    )
+                ] if bucket == "discover_category" else
+                [{"keyword": k} for k in ulist])
+                dataset_id = self._DATASET["discover_category" if bucket=="discover_category" else "discover_keyword"]
+
+            # schedule the async trigger
+            tasks[bucket] = asyncio.create_task(
+                self._trigger_async(
+                    payload,
+                    dataset_id=dataset_id,
+                    extra_params={
+                        "type":        "discover_new" if bucket.startswith("discover") else None,
+                        "discover_by": bucket if bucket.startswith("discover") else None,
+                    }
+                )
+            )
+
+        # 3) collect all snapshot IDs
+        results = await asyncio.gather(*tasks.values())
+        return dict(zip(tasks.keys(), results))
+
+
+    async def products__collect_by_url_async(
+        self,
+        urls: Sequence[str],
+        zipcodes: Optional[Sequence[str]] = None
+    ) -> str:
+        """
+        Async trigger for products__collect_by_url.
+        Returns snapshot_id.
+        """
+        payload = [
+            {"url": u, "zipcode": (zipcodes or [""]*len(urls))[i]}
+            for i, u in enumerate(urls)
+        ]
+        return await self._trigger_async(
+            payload,
+            dataset_id=self._DATASET["collect"]
+        )
+
+
+    async def products__discover_by_category_url_async(
+        self,
+        category_urls: Sequence[str],
+        sorts: Optional[Sequence[str]] = None,
+        zipcodes: Optional[Sequence[str]] = None
+    ) -> str:
+        """
+        Async trigger for products__discover_by_category_url.
+        Returns snapshot_id.
+        """
+        sorts = sorts or [""] * len(category_urls)
+        zipcodes = zipcodes or [""] * len(category_urls)
+        if not (len(category_urls) == len(sorts) == len(zipcodes)):
+            raise ValueError("category_urls, sorts and zipcodes must align")
+
+        payload = [
+            {"url": url, "sort_by": sorts[i], "zipcode": zipcodes[i]}
+            for i, url in enumerate(category_urls)
+        ]
+        return await self._trigger_async(
+            payload,
+            dataset_id=self._DATASET["discover_category"],
+            extra_params={"type": "discover_new", "discover_by": "category_url"},
+        )
+
+
+    async def products__discover_by_keyword_async(
+        self,
+        keywords: Sequence[str]
+    ) -> str:
+        """
+        Async trigger for products__discover_by_keyword.
+        Returns snapshot_id.
+        """
+        payload = [{"keyword": kw} for kw in keywords]
+        return await self._trigger_async(
+            payload,
+            dataset_id=self._DATASET["discover_keyword"],
+            extra_params={"type": "discover_new", "discover_by": "keyword"},
+        )
+
+
+    async def products_search__collect_by_url_async(
+        self,
+        keywords: Sequence[str],
+        domains: Optional[Sequence[str]] = None,
+        pages: Optional[Sequence[int]] = None
+    ) -> str:
+        """
+        Async trigger for products_search__collect_by_url.
+        Returns snapshot_id.
+        """
+        domains = domains or ["https://www.amazon.com"] * len(keywords)
+        pages = pages or [1] * len(keywords)
+        if not (len(keywords) == len(domains) == len(pages)):
+            raise ValueError("keywords, domains and pages lengths must match")
+
+        payload = [
+            {"keyword": kw, "url": domains[i], "pages_to_search": pages[i]}
+            for i, kw in enumerate(keywords)
+        ]
+        return await self._trigger_async(
+            payload,
+            dataset_id=self._DATASET["search"]
+        )
+    
 
     

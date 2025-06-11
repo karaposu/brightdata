@@ -18,6 +18,7 @@ string**.  Use the familiar helper `poll_until_ready()` or
 from typing import Any, Dict, List, Sequence, Optional
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
+import asyncio
 
 # Static Bright-Data dataset ID (from the Mouser trigger example)
 _DATASET_COLLECT_BY_URL = "gd_lfjty8942ogxzhmp8t"
@@ -82,4 +83,41 @@ class MouserScraper(BrightdataBaseSpecializedScraper):
         )
     def discover_by_category():
         pass
+    
+
+
+
+    async def collect_by_url_async(
+        self,
+        urls: Sequence[str],
+    ) -> str:
+        """
+        Async version of collect_by_url:
+        Triggers the Mouser product-detail scrape without blocking.
+        Returns the Bright Data snapshot_id.
+        """
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET_COLLECT_BY_URL
+        )
+
+    async def discover_by_category_async(
+        self,
+        category_urls: Sequence[str],
+    ) -> str:
+        """
+        Async stub for a future 'discover_by_category' endpoint.
+        Currently Mirror of collect_by_url_async—adjust payload & params
+        once a dedicated dataset is available.
+        """
+        payload = [{"category_url": u} for u in category_urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET_COLLECT_BY_URL,
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "category"
+            }
+        )
 

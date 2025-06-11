@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
+import asyncio
 
 # Bright-Data dataset IDs (static)
 _DATASET_PEOPLE   = "gd_l1viktl72bvl7bjuj0"
@@ -288,6 +289,175 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
        pass
     def people_search__collect_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
        pass
+    
+    
+    async def collect_by_url_async(self, urls: Sequence[str]) -> Dict[str, str]:
+        """
+        Async version of collect_by_url(): classify each URL, fire off 
+        async triggers per bucket, and return {bucket: snapshot_id}.
+        """
+        # 1) classify
+        buckets: Dict[str, List[str]] = {"people": [], "company": [], "job": []}
+        for u in urls:
+            kind = self._classify(u)
+            if not kind:
+                raise ValueError(f"Unrecognised LinkedIn URL: {u}")
+            buckets[kind].append(u)
+
+        # 2) trigger each bucket concurrently
+        tasks: Dict[str, asyncio.Task[str]] = {}
+        if buckets["people"]:
+            payload = [{"url": u} for u in buckets["people"]]
+            tasks["people"] = asyncio.create_task(
+                self._trigger_async(payload, dataset_id=_DATASET_PEOPLE)
+            )
+        if buckets["company"]:
+            payload = [{"url": u} for u in buckets["company"]]
+            tasks["company"] = asyncio.create_task(
+                self._trigger_async(payload, dataset_id=_DATASET_COMPANY)
+            )
+        if buckets["job"]:
+            payload = [{"url": u} for u in buckets["job"]]
+            tasks["job"] = asyncio.create_task(
+                self._trigger_async(payload, dataset_id=_DATASET_JOBS)
+            )
+
+        # 3) gather results
+        snaps = await asyncio.gather(*tasks.values())
+        return dict(zip(tasks.keys(), snaps))
+
+
+    async def people_profiles__collect_by_url_async(
+        self, urls: Sequence[str]
+    ) -> str:
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET_PEOPLE
+        )
+
+
+    async def people_profiles__discover_by_name_async(
+        self, names: Sequence[str]
+    ) -> str:
+        payload = [{"name": n} for n in names]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET_PEOPLE,
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "name",
+            }
+        )
+
+
+    async def company_information__collect_by_url_async(
+        self, urls: Sequence[str]
+    ) -> str:
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET_COMPANY
+        )
+
+
+    async def job_listing_information__collect_by_url_async(
+        self, urls: Sequence[str]
+    ) -> str:
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET_JOBS
+        )
+
+
+    async def job_listing_information__discover_by_keyword_async(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET_JOBS,
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "keyword",
+            }
+        )
+
+
+    async def job_listing_information__discover_by_url_async(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET_JOBS,
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "url",
+            }
+        )
+
+
+    async def posts__collect_by_url_async(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET_JOBS,
+            extra_params={"sync_mode": "async"}
+        )
+
+
+    async def posts__discover_by_company_url_async(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET_JOBS,
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "company_url",
+            }
+        )
+
+
+    async def posts__discover_by_profile_url_async(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET_JOBS,
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "profile_url",
+            }
+        )
+
+
+    async def posts__discover_by_url_async(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET_JOBS,
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "url",
+            }
+        )
+
+
+    async def people_search__collect_by_url_async(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET_PEOPLE,
+            extra_params={"type": "search", "discover_by": "name"}
+        )
+    
+
+
+
     
 
         

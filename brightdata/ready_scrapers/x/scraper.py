@@ -27,6 +27,8 @@ from brightdata.registry import register
 from collections import defaultdict
 from urllib.parse import urlparse
 
+import asyncio
+
 # --------------------------------------------------------------------------- #
 # Static dataset-ids (taken from the cURL examples you provided)
 # --------------------------------------------------------------------------- #
@@ -41,7 +43,7 @@ class XScraper(BrightdataBaseSpecializedScraper):
     """
     High-level Bright Data client for X (Twitter) datasets.
     """
-
+    
     # ------------------------------------------------------------------ #
     # constructor – defaults to the *profiles* dataset for connectivity
     # ------------------------------------------------------------------ #
@@ -171,6 +173,86 @@ class XScraper(BrightdataBaseSpecializedScraper):
             payload,
             dataset_id=_DATASET["profiles"],
             extra_params={"sync_mode": "async"},
+        )
+    
+
+    async def collect_by_url_async(
+        self,
+        urls: Sequence[str]
+    ) -> Dict[str, str]:
+        """
+        Async version of collect_by_url(): dispatch URLs to posts or profiles,
+        then trigger each bucket with _trigger_async concurrently.
+        Returns {bucket: snapshot_id}.
+        """
+        # 1) bucket
+        buckets: Dict[str, List[str]] = {"posts": [], "profiles": []}
+        for u in urls:
+            path = urlparse(u).path or ""
+            if "/status/" in path:
+                buckets["posts"].append(u)
+            else:
+                buckets["profiles"].append(u)
+
+        # 2) trigger concurrently
+        tasks: Dict[str, asyncio.Task[str]] = {}
+        if buckets["posts"]:
+            tasks["posts"] = asyncio.create_task(
+                self._trigger_async(
+                    [{"url": u} for u in buckets["posts"]],
+                    dataset_id=_DATASET["posts"]
+                )
+            )
+        if buckets["profiles"]:
+            tasks["profiles"] = asyncio.create_task(
+                self._trigger_async(
+                    [{"url": u, "max_number_of_posts": None} for u in buckets["profiles"]],
+                    dataset_id=_DATASET["profiles"]
+                )
+            )
+
+        # 3) gather
+        snaps = await asyncio.gather(*tasks.values())
+        return dict(zip(tasks.keys(), snaps))
+
+
+    async def posts__collect_by_url_async(
+        self,
+        post_urls: Sequence[str]
+    ) -> str:
+        payload = [{"url": u} for u in post_urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET["posts"]
+        )
+
+
+    async def posts__discover_by_profile_url_async(
+        self,
+        queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET["posts"],
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "profile_url",
+            }
+        )
+
+
+    async def profiles__collect_by_url_async(
+        self,
+        profile_urls: Sequence[str],
+        max_posts: int | None = None
+    ) -> str:
+        payload = [
+            {"url": u, "max_number_of_posts": max_posts or 100}
+            for u in profile_urls
+        ]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET["profiles"]
         )
     
    

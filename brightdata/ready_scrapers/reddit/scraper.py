@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union, Dict
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
 from urllib.parse import urlparse
+import asyncio
 
 # --------------------------------------------------------------------------- #
 # Static dataset-ids (taken from your sample API calls)
@@ -231,6 +232,102 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
             list(queries),
             dataset_id=_DATASET["comments"],
             extra_params={"sync_mode": "async"},
+        )
+    
+
+
+    async def collect_by_url_async(
+        self,
+        urls: Sequence[str],
+    ) -> Union[str, Dict[str, str]]:
+        """
+        Async version of collect_by_url(): bucket URLs, trigger each
+        async, and return either a single snapshot_id or {bucket: snapshot_id}.
+        """
+        # 1) bucket
+        post_urls, comment_urls = [], []
+        for u in urls:
+            path = urlparse(u).path
+            if "/comment/" in path:
+                comment_urls.append(u)
+            else:
+                post_urls.append(u)
+
+        # 2) schedule triggers
+        tasks: Dict[str, asyncio.Task[str]] = {}
+        if post_urls:
+            tasks["posts"] = asyncio.create_task(
+                self.posts__collect_by_url_async(post_urls)
+            )
+        if comment_urls:
+            tasks["comments"] = asyncio.create_task(
+                self.comments__collect_by_url_async(comment_urls)
+            )
+
+        # 3) gather
+        snaps = await asyncio.gather(*tasks.values())
+        result = dict(zip(tasks.keys(), snaps))
+
+        # 4) unwrap single
+        if len(result) == 1:
+            return next(iter(result.values()))
+        return result
+
+    async def posts__collect_by_url_async(
+        self,
+        post_urls: Sequence[str]
+    ) -> str:
+        """
+        Async trigger for posts__collect_by_url.
+        """
+        payload = [{"url": u} for u in post_urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=_DATASET["posts"]
+        )
+
+    async def posts__discover_by_keyword_async(
+        self,
+        queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        """
+        Async trigger for posts__discover_by_keyword.
+        """
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET["posts"],
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "keyword",
+            }
+        )
+
+    async def posts__discover_by_subreddit_url_async(
+        self,
+        queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        """
+        Async trigger for posts__discover_by_subreddit_url.
+        """
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET["posts"],
+            extra_params={
+                "type":        "discover_new",
+                "discover_by": "subreddit_url",
+            }
+        )
+
+    async def comments__collect_by_url_async(
+        self,
+        queries: Sequence[Dict[str, Any]]
+    ) -> str:
+        """
+        Async trigger for comments__collect_by_url.
+        """
+        return await self._trigger_async(
+            list(queries),
+            dataset_id=_DATASET["comments"]
         )
 
    

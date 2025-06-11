@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Sequence, Optional
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
+import asyncio
 
 @register("digikey")
 class DigikeyScraper(BrightdataBaseSpecializedScraper):
@@ -87,6 +88,36 @@ class DigikeyScraper(BrightdataBaseSpecializedScraper):
         """
         payload = [{"category_url": url} for url in category_urls]
         return self._trigger(
+            payload,
+            dataset_id=self._DATASET_ID,
+            extra_params={"type": "discover_new", "discover_by": "category"},
+        )
+    
+
+    async def collect_by_url_async(
+        self,
+        urls: Sequence[str],
+    ) -> str:
+        """
+        Async version of collect_by_url: trigger the job without blocking.
+        Returns the snapshot_id.
+        """
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(
+            payload,
+            dataset_id=self._DATASET_ID
+        )
+
+    async def discover_by_category_async(
+        self,
+        category_urls: Sequence[str],
+    ) -> str:
+        """
+        Async version of discover_by_category: trigger the job without blocking.
+        Returns the snapshot_id.
+        """
+        payload = [{"category_url": url} for url in category_urls]
+        return await self._trigger_async(
             payload,
             dataset_id=self._DATASET_ID,
             extra_params={"type": "discover_new", "discover_by": "category"},
