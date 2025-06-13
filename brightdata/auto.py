@@ -164,93 +164,93 @@ def scrape_url(
         fallback_used=fallback_used,
     )
 
-# this is in auto.py
-def scrape_url(
-    url: str,
-    bearer_token: str | None = None,
-    # poll: bool = True,
-    poll_interval: int = 8,
-    poll_timeout: int = 180,
-    fallback_to_browser_api= False
-) -> ResultData:
-    """
-    High-level scrape: trigger + (optionally) wait for data.
+# # this is in auto.py
+# def scrape_url(
+#     url: str,
+#     bearer_token: str | None = None,
+#     # poll: bool = True,
+#     poll_interval: int = 8,
+#     poll_timeout: int = 180,
+#     fallback_to_browser_api= False
+# ) -> ResultData:
+#     """
+#     High-level scrape: trigger + (optionally) wait for data.
 
-    Parameters
-    ----------
-    url           – a single URL to scrape
-    bearer_token  – your Bright Data token (or set BRIGHTDATA_TOKEN)
-    poll_interval – seconds between status checks
-    poll_timeout  – maximum seconds to wait per snapshot
+#     Parameters
+#     ----------
+#     url           – a single URL to scrape
+#     bearer_token  – your Bright Data token (or set BRIGHTDATA_TOKEN)
+#     poll_interval – seconds between status checks
+#     poll_timeout  – maximum seconds to wait per snapshot
     
-    Returns
-    -------
-    • If poll=False:
-        Snapshot           (str) or dict[str, str]
-    • If poll=True and single‐snapshot:
-        List[dict]         (the rows)
-      or ScrapeResult      (if the job errored or timed out)
-    • If poll=True and multi‐snapshot (e.g. LinkedIn):
-        Dict[str, List[dict]]  mapping bucket → rows
-      or Dict[str, ScrapeResult]
-    """
-    snap = trigger_scrape_url(url, bearer_token=bearer_token)
-    token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
-    ScraperCls = get_scraper_for(url)
+#     Returns
+#     -------
+#     • If poll=False:
+#         Snapshot           (str) or dict[str, str]
+#     • If poll=True and single‐snapshot:
+#         List[dict]         (the rows)
+#       or ScrapeResult      (if the job errored or timed out)
+#     • If poll=True and multi‐snapshot (e.g. LinkedIn):
+#         Dict[str, List[dict]]  mapping bucket → rows
+#       or Dict[str, ScrapeResult]
+#     """
+#     snap = trigger_scrape_url(url, bearer_token=bearer_token)
+#     token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
+#     ScraperCls = get_scraper_for(url)
      
-    if ScraperCls is None:
+#     if ScraperCls is None:
         
-        if fallback_to_browser_api:
-            api = BrowserAPI()
-            html_hydrated = api.get_page_source_with_a_delay(url)
-            if html_hydrated:
-                sr= ScrapeResult(
-                    success=True, 
-                    status="ready", 
-                    data=html_hydrated
-                )
-            else:
-                sr= ScrapeResult(
-                    success=False, 
-                    status="error", 
-                    data=html_hydrated, 
-                    error="unknown_browser_api_error"
-                )
-            return sr
-        else:
+#         if fallback_to_browser_api:
+#             api = BrowserAPI()
+#             html_hydrated = api.get_page_source_with_a_delay(url)
+#             if html_hydrated:
+#                 sr= ScrapeResult(
+#                     success=True, 
+#                     status="ready", 
+#                     data=html_hydrated
+#                 )
+#             else:
+#                 sr= ScrapeResult(
+#                     success=False, 
+#                     status="error", 
+#                     data=html_hydrated, 
+#                     error="unknown_browser_api_error"
+#                 )
+#             return sr
+#         else:
 
-               return None
+#                return None
     
     
     
-    # Multi‐bucket case (e.g. LinkedIn returns {"people": id1, ...})
-    if isinstance(snap, dict):
-        results: Dict[str, Any] = {}
-        for key, sid in snap.items():
-            scraper = ScraperCls(bearer_token=token)
-            res = poll_until_ready(
-                scraper,
-                sid,
-                poll=poll_interval,
-                timeout=poll_timeout,
-            )
-            if res.status == "ready":
-                results[key] = res.data
-            else:
-                results[key] = res
-        return results
+#     # Multi‐bucket case (e.g. LinkedIn returns {"people": id1, ...})
+#     if isinstance(snap, dict):
+#         results: Dict[str, Any] = {}
+#         for key, sid in snap.items():
+#             scraper = ScraperCls(bearer_token=token)
+#             res = poll_until_ready(
+#                 scraper,
+#                 sid,
+#                 poll=poll_interval,
+#                 timeout=poll_timeout,
+#             )
+#             if res.status == "ready":
+#                 results[key] = res.data
+#             else:
+#                 results[key] = res
+#         return results
 
-    # Single‐snapshot case
-    scraper = ScraperCls(bearer_token=token)
-    res = poll_until_ready(
-        scraper,
-        snap,
-        poll=poll_interval,
-        timeout=poll_timeout,
-    )
-    if res.status == "ready":
-        return res.data
-    return res
+#     # Single‐snapshot case
+#     scraper = ScraperCls(bearer_token=token)
+#     res = poll_until_ready(
+#         scraper,
+#         snap,
+#         poll=poll_interval,
+#         timeout=poll_timeout,
+#     )
+#     if res.status == "ready":
+#         return res.data
+#     return res
 
 
 
