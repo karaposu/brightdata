@@ -11,7 +11,8 @@ import json
 import aiohttp
 from collections import defaultdict
 import tldextract
-
+from datetime import datetime      
+import asyncio
 
 from typing import Dict, List, Any, Optional, Tuple, Pattern
 
@@ -66,6 +67,7 @@ class BrightdataBaseSpecializedScraper:
         """
         # Required fields
         self.dataset_id = dataset_id
+        self._timings: dict[str, dict] = {}  
         if bearer_token is None:
             
             load_dotenv()
@@ -206,7 +208,7 @@ class BrightdataBaseSpecializedScraper:
           logged at DEBUG level.
         """
 
-        
+        sent_at = datetime.utcnow()           # NEW
 
         params: Dict[str, Any] = {
             "dataset_id": dataset_id,
@@ -246,10 +248,19 @@ class BrightdataBaseSpecializedScraper:
             print("resp:  ", resp)
             resp.raise_for_status()
             data= resp.json()
-
+            
             # ▸ if it’s an async job, return just the snapshot-id string
             if isinstance(data, dict) and "snapshot_id" in data:
-                return data["snapshot_id"]
+                sid = data["snapshot_id"]
+                self._timings[sid] = {
+                    "request_sent_at": sent_at,
+                    "snapshot_id_received_at": datetime.utcnow(),
+                    "snapshot_polled_at": [],
+                    "data_received_at": None,
+                }
+
+
+                return sid
             return data
 
         except requests.exceptions.HTTPError as e:
@@ -288,6 +299,9 @@ class BrightdataBaseSpecializedScraper:
             async with session.get(result_url, headers=headers, timeout=30) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
+                
+                if snapshot_id in self._timings:
+                    self._timings[snapshot_id]["data_received_at"] = datetime.utcnow()
                 return self._make_result(
                     success=True,
                     url=result_url,
@@ -343,6 +357,9 @@ class BrightdataBaseSpecializedScraper:
         """
         status_url = f"{self.status_base_url}/{snapshot_id}"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
+        
+        if snapshot_id in self._timings:
+            self._timings[snapshot_id]["snapshot_polled_at"].append(datetime.utcnow())
 
         try:
             async with session.get(status_url, headers=headers, timeout=20) as resp:
@@ -432,6 +449,10 @@ class BrightdataBaseSpecializedScraper:
         """
         check_url = f"{self.status_base_url}/{bd_snapshot_id}"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
+
+
+        if bd_snapshot_id in self._timings:
+            self._timings[bd_snapshot_id]["snapshot_polled_at"].append(datetime.utcnow())
 
         try:
             resp = requests.get(check_url, headers=headers, timeout=10)
@@ -539,6 +560,8 @@ class BrightdataBaseSpecializedScraper:
             resp = requests.get(result_url, headers=headers, timeout=15)
             resp.raise_for_status()
             data = resp.json()
+            if bd_snapshot_id in self._timings:
+                 self._timings[bd_snapshot_id]["data_received_at"] = datetime.utcnow()
             return self._make_result(
                 success=True,
                 url=result_url,
@@ -650,6 +673,14 @@ class BrightdataBaseSpecializedScraper:
         Centralize creation of ScrapeResult with all new fields.
         """
         # extract the second-level domain
+
+        timings = self._timings.get(snapshot_id or "", {})
+        try:
+            
+            loop_id = id(asyncio.get_running_loop())
+        except RuntimeError:            # not inside a running loop (sync path)
+            loop_id = None
+
         ext = tldextract.extract(url)
         root = ext.domain or None
         
@@ -663,6 +694,12 @@ class BrightdataBaseSpecializedScraper:
             cost=cost,
             fallback_used=fallback_used,
             root_domain=root,
+            # NEW fields
+            event_loop_id=loop_id,
+            request_sent_at=timings.get("request_sent_at"),
+            snapshot_id_received_at=timings.get("snapshot_id_received_at"),
+            snapshot_polled_at=timings.get("snapshot_polled_at", []),
+            data_received_at=timings.get("data_received_at"),
         )
     
     async def _trigger_async(

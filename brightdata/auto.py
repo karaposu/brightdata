@@ -1,4 +1,7 @@
 # brightdata/auto.py
+
+
+# to run smoketest  python -m brightdata.auto
 """
 High‐level helpers: detect the right scraper for a URL, trigger a crawl,
 and (optionally) wait for results.
@@ -21,7 +24,6 @@ from typing import Any, Dict, List, Union
 
 from brightdata.registry import get_scraper_for
 from brightdata.utils.poll import poll_until_ready
-from brightdata.base_specialized_scraper import ScrapeResult
 from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
 from brightdata.browser_api import BrowserAPI
 
@@ -31,6 +33,14 @@ from brightdata.utils.async_poll import fetch_snapshot_async, fetch_snapshots_as
 from brightdata.models import ScrapeResult
 import tldextract
 
+
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    module="selenium.webdriver.remote.remote_connection"
+)
 
 
 load_dotenv()
@@ -124,19 +134,10 @@ def scrape_url(
     ScraperCls = get_scraper_for(url)
     if ScraperCls is None:
         if fallback_to_browser_api:
-            html = BrowserAPI().get_page_source_with_a_delay(url)
-            ext = tldextract.extract(url)
-            # html=browser_api.get_page_source_with_a_delay()
-            
-            return ScrapeResult(
-                    success=bool(html), url=url,
-                    status="ready" if html else "error",
-                    data=html or None,
-                    error=None if html else "browser_api_failed",
-                    snapshot_id=None, cost=None,
-                    fallback_used=True,
-                    root_domain=ext.domain or None
-                )
+            scrape_result = BrowserAPI().get_page_source_with_a_delay(url)
+            if isinstance(scrape_result, ScrapeResult):
+                return scrape_result
+
         return None
           
 
@@ -182,94 +183,6 @@ def scrape_url(
         fallback_used=fallback_used,
     )
 
-# # this is in auto.py
-# def scrape_url(
-#     url: str,
-#     bearer_token: str | None = None,
-#     # poll: bool = True,
-#     poll_interval: int = 8,
-#     poll_timeout: int = 180,
-#     fallback_to_browser_api= False
-# ) -> ResultData:
-#     """
-#     High-level scrape: trigger + (optionally) wait for data.
-
-#     Parameters
-#     ----------
-#     url           – a single URL to scrape
-#     bearer_token  – your Bright Data token (or set BRIGHTDATA_TOKEN)
-#     poll_interval – seconds between status checks
-#     poll_timeout  – maximum seconds to wait per snapshot
-    
-#     Returns
-#     -------
-#     • If poll=False:
-#         Snapshot           (str) or dict[str, str]
-#     • If poll=True and single‐snapshot:
-#         List[dict]         (the rows)
-#       or ScrapeResult      (if the job errored or timed out)
-#     • If poll=True and multi‐snapshot (e.g. LinkedIn):
-#         Dict[str, List[dict]]  mapping bucket → rows
-#       or Dict[str, ScrapeResult]
-#     """
-#     snap = trigger_scrape_url(url, bearer_token=bearer_token)
-#     token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
-#     ScraperCls = get_scraper_for(url)
-     
-#     if ScraperCls is None:
-        
-#         if fallback_to_browser_api:
-#             api = BrowserAPI()
-#             html_hydrated = api.get_page_source_with_a_delay(url)
-#             if html_hydrated:
-#                 sr= ScrapeResult(
-#                     success=True, 
-#                     status="ready", 
-#                     data=html_hydrated
-#                 )
-#             else:
-#                 sr= ScrapeResult(
-#                     success=False, 
-#                     status="error", 
-#                     data=html_hydrated, 
-#                     error="unknown_browser_api_error"
-#                 )
-#             return sr
-#         else:
-
-#                return None
-    
-    
-    
-#     # Multi‐bucket case (e.g. LinkedIn returns {"people": id1, ...})
-#     if isinstance(snap, dict):
-#         results: Dict[str, Any] = {}
-#         for key, sid in snap.items():
-#             scraper = ScraperCls(bearer_token=token)
-#             res = poll_until_ready(
-#                 scraper,
-#                 sid,
-#                 poll=poll_interval,
-#                 timeout=poll_timeout,
-#             )
-#             if res.status == "ready":
-#                 results[key] = res.data
-#             else:
-#                 results[key] = res
-#         return results
-
-#     # Single‐snapshot case
-#     scraper = ScraperCls(bearer_token=token)
-#     res = poll_until_ready(
-#         scraper,
-#         snap,
-#         poll=poll_interval,
-#         timeout=poll_timeout,
-#     )
-#     if res.status == "ready":
-#         return res.data
-#     return res
-
 
 
 async def scrape_url_async(
@@ -290,21 +203,14 @@ async def scrape_url_async(
     if ScraperCls is None:
         if fallback_to_browser_api:
             # offload blocking browser call to executor
-            html = await loop.run_in_executor(
+            scrape_result = await loop.run_in_executor(
                 None,
                 lambda: BrowserAPI().get_page_source_with_a_delay(url)
             )
-            return ScrapeResult(
-                success=bool(html),
-                url=url,
-                status="ready" if html else "error",
-                data=html if html else None,
-                error=None if html else "browser_api_failed",
-                snapshot_id=None,
-                cost=None,
-                fallback_used=True,
-                root_domain=None
-            )
+
+            if isinstance(scrape_result, ScrapeResult):
+                return scrape_result
+
         return None
 
     # 2) Poll asynchronously
@@ -368,26 +274,35 @@ async def scrape_urls_async(
     for url, snap in url_to_snap.items():
         ScraperCls = get_scraper_for(url)
         if ScraperCls is None:
+
+
             if fallback_to_browser_api:
                 # Fallback via BrowserAPI off the event loop
-                html = await loop.run_in_executor(
+                sr = await loop.run_in_executor(
                     None,
-                    lambda: BrowserAPI().get_page_source(url)
+                   lambda: BrowserAPI().get_page_source_with_a_delay(url)
                 )
+
+                results[url] = sr if isinstance(sr, ScrapeResult) else None
+                
+                # html = await loop.run_in_executor(
+                #     None,
+                #     lambda: BrowserAPI().get_page_source(url)
+                # )
                 # Build a minimal ScrapeResult
-                ext = tldextract.extract(url)
-                root = ext.domain or None
-                results[url] = ScrapeResult(
-                    success=bool(html),
-                    url=url,
-                    status="ready" if html else "error",
-                    data=html if html else None,
-                    error=None if html else "browser_api_failed",
-                    snapshot_id=None,
-                    cost=None,
-                    fallback_used=True,
-                    root_domain=root
-                )
+                # ext = tldextract.extract(url)
+                # root = ext.domain or None
+                # results[url] = ScrapeResult(
+                #     success=bool(html),
+                #     url=url,
+                #     status="ready" if html else "error",
+                #     data=html if html else None,
+                #     error=None if html else "browser_api_failed",
+                #     snapshot_id=None,
+                #     cost=None,
+                #     fallback_used=True,
+                #     root_domain=root
+                # )
             else:
                 results[url] = None
             continue
@@ -424,3 +339,29 @@ def scrape_urls(
             fallback_to_browser_api=fallback,
         )
     )
+
+
+
+if __name__ == "__main__":
+    # import pprint
+
+
+ 
+    # 1) smoke-test scrape_url
+    # print("== Smoke-test: scrape_url ==")
+    # single = "https://budgety.ai"
+    # # fallback_to_browser_api=True so that even un-scrapable URLs return HTML
+    # res1 = scrape_url(single, fallback_to_browser_api=True)
+    # # pprint.pprint(res1)
+    # print(res1)
+
+
+
+    # 2) smoke-test scrape_urls
+    print("\n== Smoke-test: scrape_urls ==")
+    many = ["https://budgety.ai", "https://openai.com"]
+    # again fallback=True so that non-registered scrapers will return HTML
+    res2 = scrape_urls(many, fallback=True)
+    print(res2)
+
+   
