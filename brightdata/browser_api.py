@@ -13,6 +13,7 @@ from selenium.webdriver.chromium.remote_connection import ChromiumRemoteConnecti
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import asyncio
 
 from typing import Any
 from brightdata.models import ScrapeResult
@@ -147,6 +148,63 @@ class BrowserAPI:
             return self._make_result(url, success=False, status="error", error=str(e))
         finally:
             driver.quit()
+
+
+    
+    async def get_page_source_async(
+        self,
+        url: str,
+    ) -> str:
+        """
+        Async wrapper around get_page_source().
+        Offloads the blocking Selenium call into a thread so you can await it.
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.get_page_source(url)
+        )
+
+    async def get_page_source_with_a_delay_async(
+        self,
+        url: str,
+        wait_time_in_seconds: int = 20,
+        extra_delay: float = 1.0,
+    ) -> str:
+        """
+        Async wrapper around get_page_source_with_a_delay().
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.get_page_source_with_a_delay(
+                url,
+                wait_time_in_seconds=wait_time_in_seconds,
+                extra_delay=extra_delay
+            )
+        )
+
+    async def capture_screenshot_async(
+        self,
+        url: str,
+        path: str,
+        wait_for_main: bool = False,
+        wait_time_in_seconds: int = 20,
+        extra_delay: float = 1.0,
+    ) -> None:
+        """
+        Async wrapper around capture_screenshot().
+        """
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: self.capture_screenshot(
+                url, path,
+                wait_for_main=wait_for_main,
+                wait_time_in_seconds=wait_time_in_seconds,
+                extra_delay=extra_delay
+            )
+        )
 
 
 

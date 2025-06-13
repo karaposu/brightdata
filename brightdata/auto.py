@@ -115,6 +115,7 @@ def scrape_url(
     bearer_token: str | None = None,
     poll_interval: int = 8,
     poll_timeout: int = 180,
+    fallback_to_browser_api: bool = False
 ) -> ScrapeResult:
     """
     Triggers a scrape and waits for it to finish, returning a
@@ -122,15 +123,32 @@ def scrape_url(
     """
     ScraperCls = get_scraper_for(url)
     if ScraperCls is None:
-        return ScrapeResult(
-            url=url,
-            status="error",
-            data=None,
-            error="no_scraper",
-            snapshot_id=None,
-            cost=None,
-            fallback_used=False,
-        )
+        if fallback_to_browser_api:
+            html = BrowserAPI().get_page_source_with_a_delay(url)
+            ext = tldextract.extract(url)
+            # html=browser_api.get_page_source_with_a_delay()
+            
+            return ScrapeResult(
+                    success=bool(html), url=url,
+                    status="ready" if html else "error",
+                    data=html or None,
+                    error=None if html else "browser_api_failed",
+                    snapshot_id=None, cost=None,
+                    fallback_used=True,
+                    root_domain=ext.domain or None
+                )
+        return None
+          
+
+        # return ScrapeResult(
+        #     url=url,
+        #     status="error",
+        #     data=None,
+        #     error="no_scraper",
+        #     snapshot_id=None,
+        #     cost=None,
+        #     fallback_used=False,
+        # )
 
     # 1) Trigger
     snap = trigger_scrape_url(url, bearer_token=bearer_token)
