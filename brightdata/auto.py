@@ -175,13 +175,14 @@ def scrape_url(
         # return early or merge new_data into data
 
     return ScrapeResult(
-        url=url,
+        success = (res.status == "ready"),
         status=res.status,
         data=res.data if res.status == "ready" else None,
         error=res.error,
         snapshot_id=snapshot_id,
         cost=cost,
         fallback_used=fallback_used,
+        url=url,
     )
 
 
