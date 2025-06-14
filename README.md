@@ -19,13 +19,18 @@ Note:  This is an unofficial SDK
 ---
 
 ## Features:
-1. Simple usage for all "collect by url" endpoints.   ``scrape_url`` method auto recognizes url links and types. No need for complex imports for each scraper. 
+1.  ``scrape_url`` method provides simplest  yet most prod ready scraping experience
+    - Method auto recognizes url links and types. No need for complex imports for each scraper and domain combination.
+    - This method has ``fallback_to_browser_api`` boolean parameter. When used, if no specialized scraper is found, it uses brightdata BrowserAPI to scrape the website.  
+    - `scrape_url`` returns a ScrapeResult which has all the information regarding scraping job as well as all key timings to allow extensive debugging.
 
-2. Supports discovery and search APIs as well. for more granular control just triggering is supported
+2. ``scrape_urls`` method for multiple link scraping. It is built with native asyncio support which means all urls can scraped at same time asycnrenously. And also ``fallback_to_browser_api` parameter available. 
 
-3. To enable agentic workflows package contains a Json file which contains information about all scrapers and their methods
+3. Supports Brightdata discovery and search APIs as well
 
-4. Includes Web Unlocker which works with all websites
+4. To enable agentic workflows package contains a Json file which contains information about all scrapers and their methods
+
+
 
 
 

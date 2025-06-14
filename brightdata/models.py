@@ -17,9 +17,6 @@ class ScrapeResult:
     cost: Optional[float] = None       # Cost charged by Bright Data for this job
     fallback_used: bool = False        # True if a fallback (e.g., BrowserAPI) was used
     root_domain: Optional[str] = None  # Second‐level domain of the URL, for registry lookups
-    # elapsed_time: Optional[float] = None   # seconds from trigger to result
-    
-    # -- timings (all ISO-8601 strings or datetime objects) --
     request_sent_at:     Optional[datetime] = None   # just before POST /trigger
     snapshot_id_received_at: Optional[datetime] = None   # when POST returns
     snapshot_polled_at:  List[datetime] = field(default_factory=list)  # every /progress check

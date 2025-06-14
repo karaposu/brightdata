@@ -32,7 +32,6 @@ from brightdata.utils.async_poll import fetch_snapshot_async, fetch_snapshots_as
 
 from brightdata.models import ScrapeResult
 import tldextract
-from brightdata.browser_pool import BrowserPool          
 
 
 import warnings
@@ -235,84 +234,76 @@ async def scrape_urls_async(
     bearer_token: str | None = None,
     poll_interval: int = 8,
     poll_timeout: int = 180,
-    *,
     fallback_to_browser_api: bool = False,
-    pool_size: int = 8,                    #  ←  NEW tunable parameter
 ) -> Dict[str, Union[ScrapeResult, Dict[str, ScrapeResult]]]:
     """
     Trigger & poll many URLs concurrently.
 
-    • Bright-Data scrapers are still polled exactly as before.
-    • URLs without a registered scraper fall back to Browser-API
-      – but *share* a pool of at most `pool_size` Playwright sessions.
-
     Returns
     -------
-    Mapping:
-        url -> ScrapeResult                    (single-bucket)
-        url -> {bucket: ScrapeResult, …}       (multi-bucket)
+    dict[str, ScrapeResult | dict[str, ScrapeResult]]
+        url → ScrapeResult  (single bucket)
+        url → {bucket: ScrapeResult, …}  (multi-bucket scrapers)
     """
     loop = asyncio.get_running_loop()
 
-    # ------------------------------------------------------------------ #
-    # 1) Fire off *all* trigger calls in parallel (thread-pool)
-    # ------------------------------------------------------------------ #
-    def _trigger(u: str) -> Snapshot:
-        return trigger_scrape_url(u, bearer_token=bearer_token)
-
-    trigger_futures = {u: loop.run_in_executor(None, _trigger, u) for u in urls}
+    # -------------------------------------------------------------- #
+    # 1) Trigger Bright-Data jobs in parallel (thread-pool is fine)
+    # -------------------------------------------------------------- #
+    trigger_futures = {
+        url: loop.run_in_executor(
+            None, lambda u=url: trigger_scrape_url(u, bearer_token=bearer_token)
+        )
+        for url in urls
+    }
     snaps = await asyncio.gather(*trigger_futures.values())
     url_to_snap: Dict[str, Snapshot] = dict(zip(trigger_futures.keys(), snaps))
 
-    # ------------------------------------------------------------------ #
-    # 2) Build a BrowserPool **only if needed**
-    # ------------------------------------------------------------------ #
-    missing = [u for u in urls if get_scraper_for(u) is None]
-    pool: BrowserPool | None = None
-    if fallback_to_browser_api and missing:
-        pool = BrowserPool(size=min(pool_size, len(missing)),
-                           browser_kwargs=dict(load_state="domcontentloaded"))
+    # -------------------------------------------------------------- #
+    # 2) Prepare BrowserAPI fallback (one shared instance)
+    # -------------------------------------------------------------- #
+    browser: BrowserAPI | None = None
+    if fallback_to_browser_api and any(
+        get_scraper_for(u) is None for u in urls
+    ):
+        browser = BrowserAPI()                                # Playwright version
 
-    # ------------------------------------------------------------------ #
-    # 3) Helper for Bright-Data multi-bucket scrapers
-    # ------------------------------------------------------------------ #
+    # -------------------------------------------------------------- #
+    # 3) Schedule all polling / fallback tasks
+    # -------------------------------------------------------------- #
     async def _poll_multi(scraper, bucket_map):
-        subtasks = [
+        tasks = [
             fetch_snapshot_async(scraper, sid,
                                  poll=poll_interval, timeout=poll_timeout)
             for sid in bucket_map.values()
         ]
-        done = await asyncio.gather(*subtasks)
+        done = await asyncio.gather(*tasks)
         return dict(zip(bucket_map.keys(), done))
 
-    # ------------------------------------------------------------------ #
-    # 4) Fan-out: poll or fallback concurrently
-    # ------------------------------------------------------------------ #
     tasks: Dict[str, asyncio.Task] = {}
 
     for url, snap in url_to_snap.items():
         ScraperCls = get_scraper_for(url)
 
-        # --- Fallback branch -------------------------------------------------
+        # ── Fallback branch ────────────────────────────────────────
         if ScraperCls is None:
-            if pool is not None:
-                async def _fallback(u=url):
-                    api = await pool.acquire()
-                    return await api.get_page_source_with_a_delay_async(
-                        u, wait_time_in_seconds=25
-                    )
-                tasks[url] = asyncio.create_task(_fallback())
+            if browser is not None:
+                # schedule Playwright coroutine directly
+                tasks[url] = asyncio.create_task(
+                    browser.get_page_source_with_a_delay_async(url)
+                )
             else:
+                # No scraper, no fallback
                 tasks[url] = asyncio.create_task(asyncio.sleep(0, result=None))
             continue
 
-        # --- Bright-Data branch --------------------------------------------
+        # ── Bright-Data branch ─────────────────────────────────────
         token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
         scraper = ScraperCls(bearer_token=token)
 
-        if isinstance(snap, dict):           # multi-bucket
+        if isinstance(snap, dict):
             tasks[url] = asyncio.create_task(_poll_multi(scraper, snap))
-        else:                                # single snapshot
+        else:
             tasks[url] = asyncio.create_task(
                 fetch_snapshot_async(
                     scraper, snap,
@@ -320,16 +311,22 @@ async def scrape_urls_async(
                 )
             )
 
-    # ------------------------------------------------------------------ #
-    # 5) Gather everything & shut the pool down once finished
-    # ------------------------------------------------------------------ #
+    # -------------------------------------------------------------- #
+    # 4) Collect results
+    # -------------------------------------------------------------- #
     gathered = await asyncio.gather(*tasks.values())
     results = dict(zip(tasks.keys(), gathered))
 
-    if pool is not None:
-        await pool.close()
+    # -------------------------------------------------------------- #
+    # 5) Clean-up Playwright browser (if we opened one)
+    # -------------------------------------------------------------- #
+    if browser is not None:
+        await browser.close()
 
     return results
+
+
+
 
 def scrape_urls(
     urls, bearer_token=None, poll_interval=8, poll_timeout=180, fallback_to_browser_api=False
@@ -430,19 +427,12 @@ if __name__ == "__main__":
     # # pprint.pprint(res1)
     # print(res1)
 
-    
-    
-    # # 2) smoke-test scrape_urls
-    # print("\n== Smoke-test: scrape_urls ==")
-    # many = ["https://budgety.ai", "https://openai.com"]
-    
-    # many =["https://budgety.ai"]
 
-    #many =["https://vickiboykis.com/", "https://www.1337x.to/home/"]
-    # many =["https://vickiboykis.com/", "https://www.1337x.to/home/","https://budgety.ai", "https://openai.com"]
-    # again fallback=True so that non-registered scrapers will return HTML
-    many = ["https://budgety.ai", "https://openai.com"]
     
+    # 2) smoke-test scrape_urls
+    print("\n== Smoke-test: scrape_urls ==")
+    many = ["https://budgety.ai", "https://openai.com"]
+    # again fallback=True so that non-registered scrapers will return HTML
     results = scrape_urls(many, fallback_to_browser_api=True)
      
     print_scrape_summary(results)

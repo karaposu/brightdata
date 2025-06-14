@@ -1,317 +1,330 @@
-# browser_api.py
+# to run:  python -m brightdata.browser_api
+"""
+brightdata.browser_api  ·  Playwright edition
+---------------------------------------------
+Async, resource-friendly wrapper around Bright Data’s Browser-API (CDP).
 
-# to run python -m brightdata.browser_api
+All public helpers return **ScrapeResult** so that the higher-level
+`brightdata.auto` helpers work unchanged.
 
-import os
-import time
-import pathlib
-import tldextract
-import requests
-from dotenv import load_dotenv
-from selenium.webdriver import Remote, ChromeOptions
-from selenium.webdriver.chromium.remote_connection import ChromiumRemoteConnection
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import asyncio
-from selenium.common.exceptions import WebDriverException, TimeoutException
+Quick smoke-test:
+    python -m brightdata.browser_api
+"""
+from __future__ import annotations
 
+import asyncio, os, pathlib, time
+from datetime import datetime
 from typing import Any
-from brightdata.models import ScrapeResult
-from datetime import datetime     
 
+from dotenv import load_dotenv
+from playwright.async_api import (
+    async_playwright,
+    Page,
+    Error as PWError,
+    TimeoutError as PWTimeoutError,
+)
+
+# ── brightdata imports ───────────────────────────────────────────
+from brightdata.models import ScrapeResult
+from brightdata.utils import _make_result_browserapi as _mk
+from brightdata.playwright_session import PlaywrightSession
+
+# ── module-level defaults ────────────────────────────────────────
+DEFAULT_HOST          = "brd.superproxy.io"
+DEFAULT_CDP_PORT      = 9222
+DEFAULT_WINDOW_SIZE   = (1920, 1080)
+DEFAULT_LOAD_STATE    = "domcontentloaded"       # Playwright wait_until
+
+DEFAULT_NAV_TIMEOUT_MS   = 75_000          # ← was NAVIGATION_TIMEOUT_MS
+DEFAULT_HYDRATE_WAIT_MS  = 30_000          # ← was MAIN_SELECTOR_WAIT_MS
+
+
+# ══════════════════════════════════════════════════════════════════
+# BrowserAPI
+# ══════════════════════════════════════════════════════════════════
 class BrowserAPI:
     """
-    Wrapper around Bright Data's Browser API (Selenium) that returns ScrapeResult.
+    Thin async wrapper around Bright Data’s Browser-API proxy.
+
+    Parameters
+    ----------
+    username / password : str | None
+        If omitted the constructor falls back to the env vars
+        `BRIGHTDATA_BROWSERAPI_USERNAME` / `_PASSWORD`.
+    load_state : {"load","domcontentloaded","networkidle","commit"}
+        Default Playwright milestone used in `goto`.
+    block_resources : bool | list[str]
+        • True           → block common heavy assets (png, jpg, woff…)
+        • list of globs  → custom patterns, e.g. ["**/*.png","**/*.css"]
+        • False / []     → no interception.
+    enable_multihydration_selector_fallback : bool
+        Try several CSS selectors when waiting for “page is hydrated”.
+    enable_networkidle_hydration_sign : bool
+        Skip CSS selectors entirely – rely on `wait_until="networkidle"`.
     """
 
-    DEFAULT_HOST = "brd.superproxy.io"
-    DEFAULT_PORT = 9515
-
+    # ───────── constructor ─────────────────────────────────────────
     def __init__(
         self,
         username: str | None = None,
         password: str | None = None,
+        *,
         host: str = DEFAULT_HOST,
-        scheme: str = "https",
-        headless: bool = True,
-        window_size: tuple[int, int] = (1920, 1080),
+        port: int = DEFAULT_CDP_PORT,
+        window_size: tuple[int, int] = DEFAULT_WINDOW_SIZE,
+        load_state: str = DEFAULT_LOAD_STATE,
+        navigation_timeout_ms: int  = DEFAULT_NAV_TIMEOUT_MS,
+        hydration_wait_ms:   int    = DEFAULT_HYDRATE_WAIT_MS,
+        block_resources: bool | list[str] = True,
+        enable_multihydration_selector_fallback: bool = True,
+        enable_networkidle_hydration_sign: bool = False,
+        
     ):
         load_dotenv()
-        env_user = os.getenv("BRIGHTDATA_BROWSERAPI_USERNAME")
-        env_pass = os.getenv("BRIGHTDATA_BROWSERAPI_PASSWORD")
 
-        self.username = username or env_user
-        self.password = password or env_pass
+        self.username = username or os.getenv("BRIGHTDATA_BROWSERAPI_USERNAME")
+        self.password = password or os.getenv("BRIGHTDATA_BROWSERAPI_PASSWORD")
         if not (self.username and self.password):
             raise ValueError(
-                "BrowserAPI requires BRIGHTDATA_BROWSERAPI_USERNAME and _PASSWORD"
+                "Provide Browser-API credentials via env vars or constructor."
             )
-
-        self._endpoint = (
-            f"{scheme}://{self.username}:{self.password}@{host}:{self.DEFAULT_PORT}"
-        )
-
-        opts = ChromeOptions()
-        if headless:
-            opts.add_argument("--headless=new")
-        opts.add_argument(f"--window-size={window_size[0]},{window_size[1]}")
-        self._opts = opts
-
-    def _new_driver(self) -> Remote:
-        conn = ChromiumRemoteConnection(self._endpoint, "goog", "chrome")
-        return Remote(conn, options=self._opts)
-
-    def _make_result(
-        self,
-        url: str,
-        *,
-        success: bool,
-        status: str,
-        data: Any = None,
-        error: str | None = None,
-        request_sent_at: datetime | None = None,
-        data_received_at: datetime | None = None,
-    ) -> ScrapeResult:
-        ext = tldextract.extract(url)
-        return ScrapeResult(
-            success=success,
-            url=url,
-            status=status,
-            data=data,
-            error=error,
-            snapshot_id=None,
-            cost=None,
-            fallback_used=True,
-            root_domain=ext.domain or None,
-            request_sent_at=request_sent_at,
-            data_received_at=data_received_at,
-        )
-    
-    def get_page_source(self, url: str) -> ScrapeResult:
-        driver = self._new_driver()
-        try:
-            sent = datetime.utcnow()
-            driver.get(url)
-            html = driver.page_source
-            received = datetime.utcnow()
-            return self._make_result(
-                url,
-                success=True,
-                status="ready",
-                data=html,
-                request_sent_at=sent,
-                data_received_at=received,
-            )
-        except Exception as e:
-            # build a friendly error string (unchanged)
-            if isinstance(e, WebDriverException):
-                msg = e.msg or repr(e)
-            elif getattr(e, "args", None):
-                msg = "; ".join(map(str, e.args))
-            else:
-                msg = repr(e)
-            return self._make_result(
-                url,
-                success=False,
-                status="error",
-                error=msg,
-                request_sent_at=sent,
-                data_received_at=datetime.utcnow(),
-            )
-        finally:
-            driver.quit()
-
         
 
+                   
 
-    def get_page_source_with_a_delay(
+        self.host, self.port          = host, port
+        self.window_size              = window_size
+        self._nav_timeout           = navigation_timeout_ms
+        self._hydration_wait        = hydration_wait_ms
+        self._default_load_state      = load_state
+        self._use_multi_hydration     = enable_multihydration_selector_fallback
+        self._use_networkidle_sign    = enable_networkidle_hydration_sign
+
+        # Selector registry is *mutable* – callers may insert site-specific hooks
+        self.hydration_selectors: list[str] = [
+            "#main",                   # placed first for compatibility
+            "div#__next",              # Next.js
+            "div[data-reactroot]",     # React generic
+            "body > *:not(script)",    # “anything inside <body>”
+        ]
+
+        self._block_patterns: list[str] = (
+            ["**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf,otf}"]
+            if block_resources is True
+            else (block_resources or [])
+        )
+
+        self._session: PlaywrightSession | None = None   # created lazily
+
+    # ───────── internal helpers ────────────────────────────────────
+    async def _open_page(self) -> Page:
+        """Fresh incognito context + tab behind Bright Data."""
+        if self._session is None:
+            self._session = await PlaywrightSession.get(
+                username=self.username,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                # window_size=self.window_size
+            )
+        return await self._session.new_page(
+            headless=True,
+            window_size=self.window_size,
+        )
+
+    async def _perform_navigation(self, url: str, *, load_state: str | None):
+        page = await self._open_page()
+
+        # ── resource blocking (optional) ────────────────────────────
+        if self._block_patterns:
+            async def _block(route): await route.abort()
+            for pat in self._block_patterns:
+                await page.route(pat, _block)
+
+        # ── actual navigation ───────────────────────────────────────
+        sent_at   = datetime.utcnow()
+        wait_until = (
+            "networkidle"
+            if self._use_networkidle_sign
+            else (load_state or self._default_load_state)
+        )
+        await page.goto(url, timeout=self._nav_timeout, wait_until=wait_until)
+        return page, sent_at
+
+    async def _navigate_and_collect(
         self,
         url: str,
-        wait_time_in_seconds: int = 20,
-        extra_delay: float = 1.0,
-    ) -> ScrapeResult:
-        driver = self._new_driver()
+        wait_for_main: bool | int,
+        *,
+        load_state: str | None,
+    ):
+        """
+        Returns  (html, sent_at, recv_at, warning_msg)
+        warning_msg is None on perfect success or a note on soft failures.
+        """
+        page, sent_at = await self._perform_navigation(url, load_state=load_state)
+
         try:
-            sent = datetime.utcnow()
-            driver.get(url)
-            WebDriverWait(driver, wait_time_in_seconds).until(
-                EC.presence_of_element_located((By.ID, "main"))
+            # ── optional hydration wait ─────────────────────────────
+            if wait_for_main and not self._use_networkidle_sign:
+                timeout_ms = (
+                    wait_for_main * 1_000
+                    if isinstance(wait_for_main, int)
+                    else self._hydration_wait
+                )
+
+                if self._use_multi_hydration:
+                    for sel in self.hydration_selectors:
+                        try:
+                            await page.wait_for_selector(sel, timeout=timeout_ms)
+                            break  # first selector that works wins
+                        except PWTimeoutError:
+                            continue
+                else:
+                    await page.wait_for_selector(self.hydration_selectors[0], timeout=timeout_ms)
+
+            html    = await page.content()
+            recv_at = datetime.utcnow()
+            return html, sent_at, recv_at, None
+
+        except PWTimeoutError as e:
+            html    = await page.content()
+            recv_at = datetime.utcnow()
+            note    = f"wait_for_selector timeout ({e}). Returned partial HTML."
+            return html, sent_at, recv_at, note
+
+        finally:
+            await page.context.close()
+
+    async def _goto(
+        self,
+        url: str,
+        wait_for_main: bool | int,
+        *,
+        load_state: str | None = None,
+    ) -> ScrapeResult:
+        try:
+            html, sent_at, recv_at, warn = await self._navigate_and_collect(
+                url, wait_for_main, load_state=load_state
             )
-            time.sleep(extra_delay)
-            html = driver.page_source
-            received = datetime.utcnow()
-            return self._make_result(
+            return _mk(
                 url,
-                success=True,
+                success=html is not None,
                 status="ready",
                 data=html,
-                request_sent_at=sent,
-                data_received_at=received,
+                error=warn,
+                request_sent_at=sent_at,
+                data_received_at=recv_at,
             )
-
-        except TimeoutException:
-            msg = f'<div id="main"> not found after {wait_time_in_seconds}s'
-            return self._make_result(
-                url,
-                success=False,
-                status="error",
-                error=msg,
-                request_sent_at=sent,
-                data_received_at=datetime.utcnow(),
-            )
-
+        except PWError as e:
+            return _mk(url, success=False, status="error", error=str(e))
         except Exception as e:
-            if isinstance(e, WebDriverException):
-                msg = e.msg or repr(e)
-            elif getattr(e, "args", None):
-                msg = "; ".join(map(str, e.args))
-            else:
-                msg = repr(e)
-            return self._make_result(
-                url,
-                success=False,
-                status="error",
-                error=msg,
-                request_sent_at=sent,
-                data_received_at=datetime.utcnow(),
-            )
-        finally:
-            driver.quit()
+            return _mk(url, success=False, status="error", error=str(e))
 
-            
-
-    def capture_screenshot(
-        self,
-        url: str,
-        path: str,
-        wait_for_main: bool = False,
-        wait_time_in_seconds: int = 20,
-        extra_delay: float = 1.0,
-    ) -> ScrapeResult:
-        """
-        Save a screenshot to `path`; return ScrapeResult.status = "ready"/"error".
-        """
-        driver = self._new_driver()
-        try:
-            driver.get(url)
-            if wait_for_main:
-                WebDriverWait(driver, wait_time_in_seconds).until(
-                    EC.presence_of_element_located((By.ID, "main"))
-                )
-                time.sleep(extra_delay)
-            filepath = pathlib.Path(path)
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            driver.save_screenshot(path)
-            return self._make_result(
-                url, success=True, status="ready", data=path
-            )
-        except Exception as e:
-            return self._make_result(url, success=False, status="error", error=str(e))
-        finally:
-            driver.quit()
-
-
-    
-    async def get_page_source_async(
-        self,
-        url: str,
-    ) -> str:
-        """
-        Async wrapper around get_page_source().
-        Offloads the blocking Selenium call into a thread so you can await it.
-        """
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None,
-            lambda: self.get_page_source(url)
-        )
+    # ───────── public async API ─────────────────────────────────────
+    async def get_page_source_async(self, url: str, *, load_state: str | None = None):
+        return await self._goto(url, wait_for_main=False, load_state=load_state)
 
     async def get_page_source_with_a_delay_async(
         self,
         url: str,
-        wait_time_in_seconds: int = 20,
-        extra_delay: float = 1.0,
-    ) -> str:
-        """
-        Async wrapper around get_page_source_with_a_delay().
-        """
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None,
-            lambda: self.get_page_source_with_a_delay(
-                url,
-                wait_time_in_seconds=wait_time_in_seconds,
-                extra_delay=extra_delay
-            )
+        wait_time_in_seconds: int = 25,
+        *,
+        load_state: str | None = None,
+    ):
+        return await self._goto(
+            url, wait_for_main=wait_time_in_seconds, load_state=load_state
         )
 
     async def capture_screenshot_async(
         self,
         url: str,
-        path: str,
-        wait_for_main: bool = False,
-        wait_time_in_seconds: int = 20,
-        extra_delay: float = 1.0,
-    ) -> None:
-        """
-        Async wrapper around capture_screenshot().
-        """
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None,
-            lambda: self.capture_screenshot(
-                url, path,
-                wait_for_main=wait_for_main,
-                wait_time_in_seconds=wait_time_in_seconds,
-                extra_delay=extra_delay
+        path: str | pathlib.Path,
+        wait_for_main: bool | int = False,
+        *,
+        load_state: str | None = None,
+    ):
+        res = await self._goto(url, wait_for_main, load_state=load_state)
+        if not res.success:
+            return res
+
+        page, _ = await self._perform_navigation(url, load_state=load_state)
+        if wait_for_main and not self._use_networkidle_sign:
+            try:
+                timeout = (
+                    wait_for_main * 1_000 if isinstance(wait_for_main, int) else self._hydration_wait
+                )
+                await page.wait_for_selector(self.hydration_selectors[0], timeout=timeout)
+            except PWTimeoutError:
+                pass
+
+        pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+        await page.screenshot(path=str(path), full_page=True)
+        await page.context.close()
+
+        return _mk(url, success=True, status="ready", data=str(path))
+
+    # ───────── sync wrappers for convenience ───────────────────────
+    def get_page_source(self, url: str, *, load_state: str | None = None):
+        return asyncio.run(self.get_page_source_async(url, load_state=load_state))
+
+    def get_page_source_with_a_delay(
+        self, url: str, wait_time_in_seconds: int = 25, *, load_state: str | None = None
+    ):
+        return asyncio.run(
+            self.get_page_source_with_a_delay_async(
+                url, wait_time_in_seconds, load_state=load_state
             )
         )
 
+    def capture_screenshot(
+        self,
+        url: str,
+        path: str | pathlib.Path,
+        wait_for_main: bool | int = False,
+        *,
+        load_state: str | None = None,
+    ):
+        return asyncio.run(
+            self.capture_screenshot_async(
+                url, path, wait_for_main=wait_for_main, load_state=load_state
+            )
+        )
+
+    # ───────── tidy-up ──────────────────────────────────────────────
+    async def close(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
 
 
+# ══════════════════════════════════════════════════════════════════
+# Smoke-test  ( python -m brightdata.browser_api )
+# ══════════════════════════════════════════════════════════════════
+if __name__ == "__main__":  # pragma: no cover
+    import pprint, sys
 
+    async def _demo() -> None:
+        url  = sys.argv[1] if len(sys.argv) > 1 else "https://openai.com"
+        api  = BrowserAPI(
+            enable_multihydration_selector_fallback=True,
+            enable_networkidle_hydration_sign=False,
+        )
+        
+        t0 = time.time()
+        res = await api.get_page_source_with_a_delay_async(url, 25)
+        t1 = time.time()
 
-def main():
-    # AUTH = "brd-customer-hl_1cdf8003-zone-scraping_browser1:f05i50grymt3"
-    # api = BrowserAPI(AUTH)
-
-  
+        pprint.pprint(
+            {
+                "success": res.success,
+                "status":  res.status,
+                "root":    res.root_domain,
+                "err":     res.error,
+                "snippet": (res.data or "")[:400],
+                "elapsed": round(t1 - t0, 3),
+            }
+        )
+        await api.close()
     
-    api = BrowserAPI(
-    username="brd-customer-hl_1cdf8003-zone-scraping_browser1",
-    password="f05i50grymt3",
-    ) 
-    
-    # BRIGHTDATA_BROWSERAPI_USERNAME=brd-customer-hl_1cdf8003-zone-scraping_browser1
-    # BRIGHTDATA_BROWSERAPI_PASSWORD=f05i50grymt3
-    
-    target_page_address="https://budgety.ai"
-
-    # target_page_address="https://example.com"
-    
-    # 1) Just grab the raw HTML immediately:
-    # html_raw = api.get_page_source(target_page_address)
-    # print(html_raw)
-    
-    
-    # 2) Grab the hydrated HTML by waiting for the headline:
-    scrape_result = api.get_page_source_with_a_delay(target_page_address)
-    
-    print("success:" , scrape_result.success)
-    
-    print("root_domain:" , scrape_result.root_domain)
-
-    print("status:" , scrape_result.status)
-
-    print("cost:" , scrape_result.cost)
-    
-    print("data:" , scrape_result.data)
-
-    print("error :", scrape_result.error)
-
-    #api.capture_screenshot(target_page_address, "budgety.png", wait_for_main=True, wait_time_in_seconds=30)
-
-
-if __name__ == "__main__":
-    main()
+    asyncio.run(_demo())
