@@ -22,6 +22,11 @@ import os
 from dotenv import load_dotenv
 from typing import Any, Dict, List, Union
 
+import logging
+
+logging.getLogger("asyncio").setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+
 from brightdata.registry import get_scraper_for
 from brightdata.utils.poll import poll_until_ready
 from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
@@ -32,6 +37,7 @@ from brightdata.utils.async_poll import fetch_snapshot_async, fetch_snapshots_as
 
 from brightdata.models import ScrapeResult
 import tldextract
+from brightdata.browser_pool import BrowserPool          
 
 
 import warnings
@@ -157,31 +163,21 @@ def scrape_url(
 
     # 2) Poll
     scraper = ScraperCls(bearer_token=bearer_token)
-    res = poll_until_ready(scraper, snapshot_id, poll=poll_interval, timeout=poll_timeout)
+    scrape_result = poll_until_ready(scraper, snapshot_id, poll=poll_interval, timeout=poll_timeout)
 
-    # 3) Extract cost if available (assuming Bright Data returns it in res.data metadata)
-    cost = None
-    if isinstance(res.data, dict) and "cost" in res.data:
-        cost = float(res.data.pop("cost"))
-
-    # 4) Determine if we fell back (example: if status != "ready" and we choose a BrowserAPI fallback)
-    fallback_used = False
-    if res.status != "ready":
-        # fallback logic could live here...
-        # e.g., call BrowserAPI or a secondary scraper
-        fallback_used = True
-        # new_data = BrowserAPI(...).get_page_source_and_wait(url)
-        # return early or merge new_data into data
-
-    return ScrapeResult(
-        url=url,
-        status=res.status,
-        data=res.data if res.status == "ready" else None,
-        error=res.error,
-        snapshot_id=snapshot_id,
-        cost=cost,
-        fallback_used=fallback_used,
-    )
+    if isinstance(scrape_result, ScrapeResult):
+        return scrape_result
+    else:
+        return ScrapeResult(
+            success=False,
+            url=url,
+            status="error",
+            data=None,
+            error="unknown_error: BrowserAPI returned unexpected type",
+            snapshot_id=None,
+            cost=None,
+            fallback_used=True,
+        )
 
 
 
@@ -210,8 +206,28 @@ async def scrape_url_async(
 
             if isinstance(scrape_result, ScrapeResult):
                 return scrape_result
+            else:
+               
+                return ScrapeResult(
+                    success=False,
+                    url=url,
+                    status="error",
+                    data=None,
+                    error="unknown_error: BrowserAPI returned unexpected type",
+                    snapshot_id=None,
+                    cost=None,
+                    fallback_used=True)
 
-        return None
+        return ScrapeResult(
+            success=False,
+            url=url,
+            status="error",
+            data=None,
+            error="no_scraper",
+            snapshot_id=None,
+            cost=None,
+            fallback_used=False,
+        )
 
     # 2) Poll asynchronously
     scraper = ScraperCls(bearer_token or os.getenv("BRIGHTDATA_TOKEN"))
@@ -229,103 +245,109 @@ async def scrape_url_async(
     return res
 
 
-
-
 async def scrape_urls_async(
     urls: List[str],
     bearer_token: str | None = None,
     poll_interval: int = 8,
     poll_timeout: int = 180,
-    fallback_to_browser_api: bool = False
+    *,
+    fallback_to_browser_api: bool = False,
+    pool_size: int = 8,                    #  ←  NEW tunable parameter
 ) -> Dict[str, Union[ScrapeResult, Dict[str, ScrapeResult]]]:
     """
-    Trigger and poll multiple URLs concurrently, returning a mapping:
-      url -> ScrapeResult  (single-bucket)
-      url -> {bucket: ScrapeResult, ...}  (multi-bucket)
-    Fallback to BrowserAPI if no scraper is registered and fallback_to_browser_api=True.
+    Trigger & poll many URLs concurrently.
+
+    • Bright-Data scrapers are still polled exactly as before.
+    • URLs without a registered scraper fall back to Browser-API
+      – but *share* a pool of at most `pool_size` Playwright sessions.
+
+    Returns
+    -------
+    Mapping:
+        url -> ScrapeResult                    (single-bucket)
+        url -> {bucket: ScrapeResult, …}       (multi-bucket)
     """
     loop = asyncio.get_running_loop()
-     
-    # 1) Trigger all jobs in parallel (off the event loop)
-    trigger_tasks = {
-        url: loop.run_in_executor(
-            None,
-            lambda url=url: trigger_scrape_url(url, bearer_token=bearer_token)
-        )
-        for url in urls
-    }
-    snaps = await asyncio.gather(*trigger_tasks.values())
-    url_to_snap = dict(zip(trigger_tasks.keys(), snaps))
 
-    # Helper to gather multi-bucket polling
-    async def _gather_buckets(scraper, bucket_map):
-        tasks = {
-            bucket: asyncio.create_task(
-                fetch_snapshot_async(scraper, sid, poll=poll_interval, timeout=poll_timeout)
-            )
-            for bucket, sid in bucket_map.items()
-        }
-        results = await asyncio.gather(*tasks.values())
-        return dict(zip(tasks.keys(), results))
+    # ------------------------------------------------------------------ #
+    # 1) Fire off *all* trigger calls in parallel (thread-pool)
+    # ------------------------------------------------------------------ #
+    def _trigger(u: str) -> Snapshot:
+        return trigger_scrape_url(u, bearer_token=bearer_token)
 
-    results: Dict[str, Union[ScrapeResult, Dict[str, ScrapeResult]]] = {}
+    trigger_futures = {u: loop.run_in_executor(None, _trigger, u) for u in urls}
+    snaps = await asyncio.gather(*trigger_futures.values())
+    url_to_snap: Dict[str, Snapshot] = dict(zip(trigger_futures.keys(), snaps))
 
-    # 2) Poll all jobs asynchronously
+    # ------------------------------------------------------------------ #
+    # 2) Build a BrowserPool **only if needed**
+    # ------------------------------------------------------------------ #
+    missing = [u for u in urls if get_scraper_for(u) is None]
+    pool: BrowserPool | None = None
+    if fallback_to_browser_api and missing:
+        pool = BrowserPool(size=min(pool_size, len(missing)),
+                           browser_kwargs=dict(load_state="domcontentloaded"))
+
+    # ------------------------------------------------------------------ #
+    # 3) Helper for Bright-Data multi-bucket scrapers
+    # ------------------------------------------------------------------ #
+    async def _poll_multi(scraper, bucket_map):
+        subtasks = [
+            fetch_snapshot_async(scraper, sid,
+                                 poll=poll_interval, timeout=poll_timeout)
+            for sid in bucket_map.values()
+        ]
+        done = await asyncio.gather(*subtasks)
+        return dict(zip(bucket_map.keys(), done))
+
+    # ------------------------------------------------------------------ #
+    # 4) Fan-out: poll or fallback concurrently
+    # ------------------------------------------------------------------ #
+    tasks: Dict[str, asyncio.Task] = {}
+
     for url, snap in url_to_snap.items():
         ScraperCls = get_scraper_for(url)
+
+        # --- Fallback branch -------------------------------------------------
         if ScraperCls is None:
-
-
-            if fallback_to_browser_api:
-                # Fallback via BrowserAPI off the event loop
-                sr = await loop.run_in_executor(
-                    None,
-                   lambda: BrowserAPI().get_page_source_with_a_delay(url)
-                )
-
-                results[url] = sr if isinstance(sr, ScrapeResult) else None
-                
-                # html = await loop.run_in_executor(
-                #     None,
-                #     lambda: BrowserAPI().get_page_source(url)
-                # )
-                # Build a minimal ScrapeResult
-                # ext = tldextract.extract(url)
-                # root = ext.domain or None
-                # results[url] = ScrapeResult(
-                #     success=bool(html),
-                #     url=url,
-                #     status="ready" if html else "error",
-                #     data=html if html else None,
-                #     error=None if html else "browser_api_failed",
-                #     snapshot_id=None,
-                #     cost=None,
-                #     fallback_used=True,
-                #     root_domain=root
-                # )
+            if pool is not None:
+                async def _fallback(u=url):
+                    api = await pool.acquire()
+                    return await api.get_page_source_with_a_delay_async(
+                        u, wait_time_in_seconds=25
+                    )
+                tasks[url] = asyncio.create_task(_fallback())
             else:
-                results[url] = None
+                tasks[url] = asyncio.create_task(asyncio.sleep(0, result=None))
             continue
 
-        # Registered scraper: poll results
+        # --- Bright-Data branch --------------------------------------------
         token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
         scraper = ScraperCls(bearer_token=token)
 
-        if isinstance(snap, dict):
-            # Multi-bucket
-            results[url] = await _gather_buckets(scraper, snap)
-        else:
-            # Single snapshot
-            results[url] = await fetch_snapshot_async(
-                scraper, snap, poll=poll_interval, timeout=poll_timeout
+        if isinstance(snap, dict):           # multi-bucket
+            tasks[url] = asyncio.create_task(_poll_multi(scraper, snap))
+        else:                                # single snapshot
+            tasks[url] = asyncio.create_task(
+                fetch_snapshot_async(
+                    scraper, snap,
+                    poll=poll_interval, timeout=poll_timeout
+                )
             )
+
+    # ------------------------------------------------------------------ #
+    # 5) Gather everything & shut the pool down once finished
+    # ------------------------------------------------------------------ #
+    gathered = await asyncio.gather(*tasks.values())
+    results = dict(zip(tasks.keys(), gathered))
+
+    if pool is not None:
+        await pool.close()
 
     return results
 
-
-
 def scrape_urls(
-    urls, bearer_token=None, poll_interval=8, poll_timeout=180, fallback=False
+    urls, bearer_token=None, poll_interval=8, poll_timeout=180, fallback_to_browser_api=False
 ):
     """
     Synchronous wrapper around scrape_urls_async.
@@ -336,57 +358,87 @@ def scrape_urls(
             bearer_token=bearer_token,
             poll_interval=poll_interval,
             poll_timeout=poll_timeout,
-            fallback_to_browser_api=fallback,
+            fallback_to_browser_api=fallback_to_browser_api,
         )
     )
+
+
 
 
 
 def print_scrape_summary(
     results: Dict[str, Union[ScrapeResult, Dict[str, ScrapeResult]]]
 ) -> None:
+    """
+    Pretty console output for the dict returned by `scrape_urls(_async)`.
+
+    • Handles single-bucket ScrapeResult objects
+    • Handles multi-bucket dicts {bucket: ScrapeResult}
+    • Prints timing fields when present
+    """
     for url, result in results.items():
         print(f"\nURL: {url}")
+
+        # ────────────────────────────────────────────────
+        # 1. Single-bucket
+        # ────────────────────────────────────────────────
         if isinstance(result, ScrapeResult):
             print(f"  success:       {result.success}")
             print(f"  status:        {result.status}")
             print(f"  root_domain:   {result.root_domain!r}")
 
-            # new timestamps
+            # optional timestamps
             if result.request_sent_at:
                 print(f"  sent at:       {result.request_sent_at.isoformat()}Z")
             if result.snapshot_id_received_at:
                 print(f"  sid recv at:   {result.snapshot_id_received_at.isoformat()}Z")
             if result.snapshot_polled_at:
-                last_poll = result.snapshot_polled_at[-1]
-                print(f"  last polled:   {last_poll.isoformat()}Z")
+                print(f"  last polled:   {result.snapshot_polled_at[-1].isoformat()}Z")
             if result.data_received_at:
                 print(f"  data recv at:  {result.data_received_at.isoformat()}Z")
             if result.event_loop_id is not None:
                 print(f"  loop id:       {result.event_loop_id}")
 
-            # data shape
+            # error (if any)
+            if result.error:
+                print(f"  error:         {result.error}")
+
+            # data size / type
             if result.data is not None:
                 if isinstance(result.data, list):
                     print(f"  rows:          {len(result.data)}")
                 else:
                     print(f"  data type:     {type(result.data).__name__}")
 
+        # ────────────────────────────────────────────────
+        # 2. Multi-bucket
+        # ────────────────────────────────────────────────
         elif isinstance(result, dict):
             print("  multi-bucket:")
             for bucket, sub in result.items():
-                print(f"    [{bucket}] success={sub.success} status={sub.status}")
+                line = f"    [{bucket}] success={sub.success} status={sub.status}"
+                if sub.error:
+                    line += f" error={sub.error}"
+                print(line)
                 if sub.snapshot_polled_at:
-                    print(f"       polled: {sub.snapshot_polled_at[-1].isoformat()}Z")
+                    print(f"       last poll: {sub.snapshot_polled_at[-1].isoformat()}Z")
                 if isinstance(sub.data, list):
-                    print(f"       rows:   {len(sub.data)}")
+                    print(f"       rows:      {len(sub.data)}")
 
+        # ────────────────────────────────────────────────
+        # 3. No result
+        # ────────────────────────────────────────────────
         else:
             print("  <no result>")
 
 
 if __name__ == "__main__":
     # import pprint
+
+    logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(name)s  %(message)s",
+)   
 
 
  
@@ -398,13 +450,27 @@ if __name__ == "__main__":
     # # pprint.pprint(res1)
     # print(res1)
 
-
     
-    # 2) smoke-test scrape_urls
-    print("\n== Smoke-test: scrape_urls ==")
-    many = ["https://budgety.ai", "https://openai.com"]
+    
+    # # 2) smoke-test scrape_urls
+    # print("\n== Smoke-test: scrape_urls ==")
+    # many = ["https://budgety.ai", "https://openai.com"]
+    
+    # many =["https://budgety.ai"]
+
+    #many =["https://vickiboykis.com/", "https://www.1337x.to/home/"]
+    # many =["https://vickiboykis.com/", "https://www.1337x.to/home/","https://budgety.ai", "https://openai.com"]
     # again fallback=True so that non-registered scrapers will return HTML
-    results = scrape_urls(many, fallback=True)
+    # many = ["https://budgety.ai", "https://openai.com"]
+
+    # b="https://openai.com/news/"
+
+    b="https://www.reddit.com/r/OpenAI/"
+    a="https://community.openai.com/t/openai-website-rss-feed-inquiry/733747"
+    
+    many= [a,b]
+    
+    results = scrape_urls(many, fallback_to_browser_api=True)
      
     print_scrape_summary(results)
 

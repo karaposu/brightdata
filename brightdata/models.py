@@ -22,5 +22,5 @@ class ScrapeResult:
     snapshot_polled_at:  List[datetime] = field(default_factory=list)  # every /progress check
     data_received_at:    Optional[datetime] = None   # when /snapshot?format=json succeeded
     event_loop_id: Optional[int] = None                      # id(asyncio.get_running_loop())
-
+    browser_warmed_at: datetime | None = None
 

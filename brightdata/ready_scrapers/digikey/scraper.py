@@ -1,126 +1,76 @@
-#here is ready_scrapers/digikey/scraper.py
-from typing import Any, Dict, List, Sequence, Optional
+#!/usr/bin/env python3
+"""
+brightdata.ready_scrapers.digikey.scraper
+-----------------------------------------
+
+Wrapper for Bright Data’s Digi-Key product dataset.
+
+Implemented endpoints
+~~~~~~~~~~~~~~~~~~~~~
+* **collect_by_url** – scrape specific product pages
+* **discover_by_category** – crawl category pages for new parts
+
+All calls run with `sync_mode=async` and therefore return a **snapshot-id**
+immediately.  Block with::
+
+    res = scraper.poll_until_ready(snapshot_id)
+
+or in an `async` context::
+
+    res = await scraper.poll_until_ready_async(snapshot_id)
+"""
+from __future__ import annotations
+
+from typing import List, Sequence, Dict, Optional
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
 import asyncio
 
+
 @register("digikey")
 class DigikeyScraper(BrightdataBaseSpecializedScraper):
     """
-    ---
-    agent_id: digikey
-    title: DigikeyScraper
-    desc: >
-      High-level wrapper around Bright Data’s Digi-Key datasets.
-      A single dataset-id is used for both collect and discover.
-    example: |
-      from brightdata.ready_scrapers.digikey import DigikeyScraper
-      scraper = DigikeyScraper()
-      snap = scraper.collect_by_url([
-        "https://www.digikey.com/en/products/detail/STMicroelectronics/STM32F407VGT6/2747117"
-      ])
-    ---
+    High-level client for Bright Data’s Digi-Key dataset.
+
+    >>> from brightdata.ready_scrapers.digikey import DigikeyScraper
+    >>> s   = DigikeyScraper()
+    >>> sid = s.collect_by_url([
+    ...     "https://www.digikey.com/en/products/detail/STMicroelectronics/STM32F407VGT6/2747117"
+    ... ])
+    >>> rows = s.poll_until_ready(sid).data
     """
 
     _DATASET_ID = "gd_lj74waf72416ro0k65"
 
+    # ───────────────────────── constructor ───────────────────────────
     def __init__(self, bearer_token: Optional[str] = None, **kw):
-        """
-        ---
-        endpoint: constructor
-        desc: Instantiate a DigikeyScraper; bearer_token is optional.
-        params:
-          bearer_token:
-            type: str
-            desc: Bright Data API token (reads from BRIGHTDATA_TOKEN if None).
-          kw:
-            type: dict
-            desc: Extra keyword-arguments forwarded to the base class.
-        returns:
-          type: DigikeyScraper
-          desc: A configured scraper instance.
-        ---
-        """
         super().__init__(self._DATASET_ID, bearer_token, **kw)
 
+    # ─────────────────────── collect_by_url (sync) ───────────────────
     def collect_by_url(self, urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: collect_by_url
-        desc: Scrape specific Digi-Key product pages.
-        params:
-          urls:
-            type: list[str]
-            desc: Full product-detail URLs.
-        returns:
-          type: str
-          desc: snapshot_id; poll until ready to retrieve `list[dict]` rows.
-        example: |
-          snap = scraper.collect_by_url([
-            "https://www.digikey.com/en/products/detail/STMicroelectronics/STM32F407VGT6/2747117",
-            "https://www.digikey.com/en/products/detail/Texas-Instruments/TPS7A4901PWP/8280491"
-          ])
-        ---
-        """
         payload = [{"url": u} for u in urls]
-        return self._trigger(payload, dataset_id=self._DATASET_ID)
+        return self.trigger(payload, dataset_id=self._DATASET_ID)
 
+    # ───────────────────── collect_by_url (async) ────────────────────
+    async def collect_by_url_async(self, urls: Sequence[str]) -> str:
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(payload, dataset_id=self._DATASET_ID)
+
+    # ───────────────────── discover_by_category (sync) ───────────────
     def discover_by_category(self, category_urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: discover_by_category
-        desc: >
-          Crawl Digi-Key category pages and return links to *new* parts
-          (Bright Data’s `discover_new` semantics).
-        params:
-          category_urls:
-            type: list[str]
-            desc: Full category-page URLs.
-        returns:
-          type: str
-          desc: snapshot_id; poll until ready to retrieve `list[dict]` rows.
-        example: |
-          snap = scraper.discover_by_category([
-            "https://www.digikey.com/en/products/filter/resistors/general-purpose-fixed/04"
-          ])
-        ---
-        """
         payload = [{"category_url": url} for url in category_urls]
-        return self._trigger(
+        return self.trigger(
             payload,
             dataset_id=self._DATASET_ID,
             extra_params={"type": "discover_new", "discover_by": "category"},
         )
-    
 
-    async def collect_by_url_async(
-        self,
-        urls: Sequence[str],
-    ) -> str:
-        """
-        Async version of collect_by_url: trigger the job without blocking.
-        Returns the snapshot_id.
-        """
-        payload = [{"url": u} for u in urls]
-        return await self._trigger_async(
-            payload,
-            dataset_id=self._DATASET_ID
-        )
-
-    async def discover_by_category_async(
-        self,
-        category_urls: Sequence[str],
-    ) -> str:
-        """
-        Async version of discover_by_category: trigger the job without blocking.
-        Returns the snapshot_id.
-        """
+    # ───────────────────── discover_by_category (async) ──────────────
+    async def discover_by_category_async(self, category_urls: Sequence[str]) -> str:
         payload = [{"category_url": url} for url in category_urls]
         return await self._trigger_async(
             payload,
             dataset_id=self._DATASET_ID,
             extra_params={"type": "discover_new", "discover_by": "category"},
         )
-
-

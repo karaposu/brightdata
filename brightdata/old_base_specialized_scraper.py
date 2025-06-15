@@ -11,11 +11,15 @@ import json
 import aiohttp
 from collections import defaultdict
 import tldextract
-
-
+from datetime import datetime      
+import asyncio
+from brightdata.utils import _BD_URL_RE
+import urllib
 from typing import Dict, List, Any, Optional, Tuple, Pattern
 
 logger = logging.getLogger(__name__)
+
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
 from brightdata.models import ScrapeResult
@@ -66,6 +70,7 @@ class BrightdataBaseSpecializedScraper:
         """
         # Required fields
         self.dataset_id = dataset_id
+        self._snapshot_meta: dict[str, dict] = {}  
         if bearer_token is None:
             
             load_dotenv()
@@ -90,8 +95,8 @@ class BrightdataBaseSpecializedScraper:
 
         self.test_link = test_link  # optional
         self.config = kwargs
-
-        logger.debug("Initialized BrightdataBaseSpecializedScraper")
+        
+        # logger.debug("Initialized BrightdataBaseSpecializedScraper")
     
     def test_connection(self):
         """
@@ -206,7 +211,7 @@ class BrightdataBaseSpecializedScraper:
           logged at DEBUG level.
         """
 
-        
+        sent_at = datetime.utcnow()           # NEW
 
         params: Dict[str, Any] = {
             "dataset_id": dataset_id,
@@ -214,7 +219,7 @@ class BrightdataBaseSpecializedScraper:
              "format":        "json",           # ← missing piece
         }
 
-
+        
         # unify behaviour: force async unless caller opts out
         if force_async and (not extra_params or "sync_mode" not in extra_params):
             params["sync_mode"] = "async"
@@ -228,11 +233,11 @@ class BrightdataBaseSpecializedScraper:
         }
 
 
-        print("inside the super _trigger:  ")
+        # print("inside the super _trigger:  ")
 
-        print("headers:  ", headers)
-        print("params:  ", params)
-        print("json:  ", payload)
+        # print("headers:  ", headers)
+        # print("params:  ", params)
+        # print("json:  ", payload)
         
         try:
             resp = requests.post(
@@ -243,13 +248,26 @@ class BrightdataBaseSpecializedScraper:
                 timeout=timeout,
             )
 
-            print("resp:  ", resp)
+            # print("resp:  ", resp)
             resp.raise_for_status()
             data= resp.json()
-
+            
             # ▸ if it’s an async job, return just the snapshot-id string
             if isinstance(data, dict) and "snapshot_id" in data:
-                return data["snapshot_id"]
+                sid = data["snapshot_id"]
+                first_url  = payload[0].get("url") if payload else url
+                real_root  = tldextract.extract(first_url).domain or None
+                self._snapshot_meta[sid] = {
+                    "request_sent_at": sent_at,
+                    "snapshot_id_received_at": datetime.utcnow(),
+                    "snapshot_polled_at": [],
+                    "data_received_at": None,
+                    "root_override":         real_root,        # ← NEW
+
+                }
+
+            
+                return sid
             return data
 
         except requests.exceptions.HTTPError as e:
@@ -273,54 +291,126 @@ class BrightdataBaseSpecializedScraper:
                          dataset_id, e)
             return None
         
-
-
-
-    async def _fetch_result_async(self, snapshot_id: str,
-                              session: aiohttp.ClientSession) -> ScrapeResult:
-        """non-blocking version of _fetch_result()"""
-        url = f"{self.result_base_url}/{snapshot_id}?format=json"
+    async def _fetch_result_async(
+        self,
+        snapshot_id: str,
+        session: aiohttp.ClientSession
+    ) -> ScrapeResult:
+        """
+        Non-blocking version of _fetch_result(), returns a fully populated ScrapeResult.
+        """
+        result_url = f"{self.result_base_url}/{snapshot_id}?format=json"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         try:
-            async with session.get(url, headers=headers, timeout=30) as resp:
+            async with session.get(result_url, headers=headers, timeout=30) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-                return ScrapeResult(True, "ready", data=data)
-
+                
+                if snapshot_id in self._snapshot_meta:
+                    self._snapshot_meta[snapshot_id]["data_received_at"] = datetime.utcnow()
+                return self._make_result(
+                    success=True,
+                    url=result_url,
+                    status="ready",
+                    data=data,
+                    snapshot_id=snapshot_id
+                )
         except aiohttp.ClientResponseError as e:
-            return ScrapeResult(False, "error", error=f"http_{e.status}")
-        except Exception as e:
-            return ScrapeResult(False, "error", error=str(e))
+            return self._make_result(
+                success=False,
+                url=result_url,
+                status="error",
+                error=f"http_{e.status}",
+                snapshot_id=snapshot_id
+            )
+        except Exception:
+            return self._make_result(
+                success=False,
+                url=result_url,
+                status="error",
+                error="fetch_error",
+                snapshot_id=snapshot_id
+            )
 
 
-    async def get_data_async(self, snapshot_id: str,
-                            session: aiohttp.ClientSession) -> ScrapeResult:
+
+    # async def _fetch_result_async(self, snapshot_id: str,
+    #                           session: aiohttp.ClientSession) -> ScrapeResult:
+    #     """non-blocking version of _fetch_result()"""
+    #     url = f"{self.result_base_url}/{snapshot_id}?format=json"
+    #     headers = {"Authorization": f"Bearer {self.bearer_token}"}
+
+    #     try:
+    #         async with session.get(url, headers=headers, timeout=30) as resp:
+    #             resp.raise_for_status()
+    #             data = await resp.json()
+    #             return ScrapeResult(True, "ready", data=data)
+
+    #     except aiohttp.ClientResponseError as e:
+    #         return ScrapeResult(False, "error", error=f"http_{e.status}")
+    #     except Exception as e:
+    #         return ScrapeResult(False, "error", error=str(e))
+
+
+    async def get_data_async(
+        self,
+        snapshot_id: str,
+        session: aiohttp.ClientSession
+    ) -> ScrapeResult:
         """
-        Async twin of get_data(); *never* blocks the event loop.
+        Async twin of get_data(); never blocks the event loop.
+        Returns a fully populated ScrapeResult.
         """
-        url = f"{self.status_base_url}/{snapshot_id}"
+        status_url = f"{self.status_base_url}/{snapshot_id}"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
+        
+        if snapshot_id in self._snapshot_meta:
+            self._snapshot_meta[snapshot_id]["snapshot_polled_at"].append(datetime.utcnow())
 
         try:
-            async with session.get(url, headers=headers, timeout=20) as resp:
+            async with session.get(status_url, headers=headers, timeout=20) as resp:
                 resp.raise_for_status()
                 state = await resp.json()
-
         except aiohttp.ClientResponseError as e:
-            return ScrapeResult(False, "error", error=f"http_{e.status}")
-        except Exception as e:
-            return ScrapeResult(False, "error", error=str(e))
+            return self._make_result(
+                success=False,
+                url=status_url,
+                status="error",
+                error=f"http_{e.status}",
+                snapshot_id=snapshot_id
+            )
+        except Exception:
+            return self._make_result(
+                success=False,
+                url=status_url,
+                status="error",
+                error="fetch_error",
+                snapshot_id=snapshot_id
+            )
 
-        status = state.get("status", "unknown").lower()
-        if status == "ready":
+        current_status = state.get("status", "unknown").lower()
+
+        if current_status == "ready":
+            # Delegate to the async fetch
             return await self._fetch_result_async(snapshot_id, session)
-        if status in {"error", "failed"}:
-            return ScrapeResult(False, "error", error="job_failed")
-        return ScrapeResult(True, status)          # not_ready / in_progress    
-    
 
+        if current_status in {"error", "failed"}:
+            return self._make_result(
+                success=False,
+                url=status_url,
+                status="error",
+                error="job_failed",
+                snapshot_id=snapshot_id
+            )
 
+        # in progress / not ready
+        return self._make_result(
+            success=True,
+            url=status_url,
+            status="not_ready",
+            snapshot_id=snapshot_id
+        )
     
 
     
@@ -366,6 +456,10 @@ class BrightdataBaseSpecializedScraper:
         """
         check_url = f"{self.status_base_url}/{bd_snapshot_id}"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
+
+
+        if bd_snapshot_id in self._snapshot_meta:
+            self._snapshot_meta[bd_snapshot_id]["snapshot_polled_at"].append(datetime.utcnow())
 
         try:
             resp = requests.get(check_url, headers=headers, timeout=10)
@@ -466,11 +560,6 @@ class BrightdataBaseSpecializedScraper:
     #         return ScrapeResult(success=True, status="not_ready", data=None)
 
     def _fetch_result(self, bd_snapshot_id: str) -> ScrapeResult:
-        """
-        Fetches the final JSON from the Bright Data result endpoint:
-          GET /snapshot/{bd_snapshot_id}?format=json
-        Returns a ScrapeResult with the final data or an appropriate error.
-        """
         result_url = f"{self.result_base_url}/{bd_snapshot_id}?format=json"
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
@@ -478,19 +567,41 @@ class BrightdataBaseSpecializedScraper:
             resp = requests.get(result_url, headers=headers, timeout=15)
             resp.raise_for_status()
             data = resp.json()
-            return ScrapeResult(success=True, status="ready", data=data)
+            if bd_snapshot_id in self._snapshot_meta:
+                 self._snapshot_meta[bd_snapshot_id]["data_received_at"] = datetime.utcnow()
+            return self._make_result(
+                success=True,
+                url=result_url,
+                status="ready",
+                data=data,
+                snapshot_id=bd_snapshot_id
+            )
         except requests.exceptions.HTTPError as e:
-            # Distinguish error codes
-            error_result = self._map_http_error(e)
-            logger.debug(f"HTTP Error while fetching result: {e}")
-            return error_result
-        except requests.exceptions.RequestException as e:
-            logger.debug(f"Request Error while fetching result: {str(e)}")
-            return ScrapeResult(success=False, status="error", error="fetch_error", data=None)
-        except Exception as e:
-            logger.debug(f"Unexpected error while fetching result: {str(e)}")
-            return ScrapeResult(success=False, status="error", error="fetch_error", data=None)
-
+            mapped = self._map_http_error(e)
+            return self._make_result(
+                success=False,
+                url=result_url,
+                status="error",
+                error=mapped.error,
+                snapshot_id=bd_snapshot_id
+            )
+        except requests.exceptions.RequestException:
+            return self._make_result(
+                success=False,
+                url=result_url,
+                status="error",
+                error="fetch_error",
+                snapshot_id=bd_snapshot_id
+            )
+        except Exception:
+            return self._make_result(
+                success=False,
+                url=result_url,
+                status="error",
+                error="fetch_error",
+                snapshot_id=bd_snapshot_id
+            )
+    
     def _map_http_error(self, e: requests.exceptions.HTTPError) -> ScrapeResult:
         """
         Helper to map HTTPError status codes to specific error labels
@@ -564,14 +675,32 @@ class BrightdataBaseSpecializedScraper:
         snapshot_id: Optional[str] = None,
         cost: Optional[float] = None,
         fallback_used: bool = False,
+        # root_override: Optional[str] = None,      # ← NEW
     ) -> ScrapeResult:
         """
         Centralize creation of ScrapeResult with all new fields.
         """
         # extract the second-level domain
+
+        timings = self._snapshot_meta.get(snapshot_id or "", {})
+        try:
+            
+            loop_id = id(asyncio.get_running_loop())
+        except RuntimeError:            # not inside a running loop (sync path)
+            loop_id = None
+
+        # if root_override:
+        #     root= root_override
+        # else:
+
         ext = tldextract.extract(url)
         root = ext.domain or None
 
+        if root == "brightdata":
+            root = timings.get("root_override", root)
+
+
+        
         return ScrapeResult(
             success=success,
             url=url,
@@ -582,4 +711,37 @@ class BrightdataBaseSpecializedScraper:
             cost=cost,
             fallback_used=fallback_used,
             root_domain=root,
+            # NEW fields
+            event_loop_id=loop_id,
+            request_sent_at=timings.get("request_sent_at"),
+            snapshot_id_received_at=timings.get("snapshot_id_received_at"),
+            snapshot_polled_at=timings.get("snapshot_polled_at", []),
+            data_received_at=timings.get("data_received_at"),
         )
+    
+    async def _trigger_async(
+        self,
+        payload: List[Dict[str, Any]],
+        *,
+        dataset_id: str,
+        include_errors: bool = True,
+        extra_params: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """
+        Non-blocking POST to /trigger returning snapshot_id.
+        """
+        url = "https://api.brightdata.com/datasets/v3/trigger"
+        params = {
+            "dataset_id": dataset_id,
+            "include_errors": str(include_errors).lower(),
+            "format": "json",
+            **(extra_params or {}),
+            "sync_mode": "async",
+        }
+        headers = {"Authorization": f"Bearer {self.bearer_token}", "Content-Type": "application/json"}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload, params=params) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                return data.get("snapshot_id")

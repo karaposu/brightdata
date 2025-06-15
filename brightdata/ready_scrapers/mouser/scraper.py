@@ -3,121 +3,80 @@
 brightdata.ready_scrapers.mouser.scraper
 ----------------------------------------
 
-Simple wrapper around Bright Data’s *Mouser products* dataset.
+Unofficial wrapper for Bright Data’s *Mouser product page* dataset.
 
-Only one endpoint is documented by Bright Data at the moment:
+Endpoints implemented
+~~~~~~~~~~~~~~~~~~~~~
+* **collect_by_url** – scrape specific product URLs (snapshot-id returned)
+* **discover_by_category** *(future stub)* – placeholder for category crawls
 
-* **collect_by_url** – scrape specific Mouser product pages.
+All calls run in **async mode** (`sync_mode=async`) and therefore return
+*immediately* with a snapshot-id.  Block with::
 
-The call is made in *async* mode (`sync_mode=async` is injected by the
-shared base class), therefore it returns immediately with a **snapshot-id
-string**.  Use the familiar helper `poll_until_ready()` or
-`utils.async_poll.wait_ready()` to obtain the final JSON rows.
+    result = scraper.poll_until_ready(snapshot_id)
+
+or, in an async context::
+
+    result = await scraper.poll_until_ready_async(snapshot_id)
 """
+from __future__ import annotations
 
 from typing import Any, Dict, List, Sequence, Optional
+
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
 import asyncio
 
-# Static Bright-Data dataset ID (from the Mouser trigger example)
+# Bright-Data dataset id (taken from their API docs)
 _DATASET_COLLECT_BY_URL = "gd_lfjty8942ogxzhmp8t"
 
 
 @register("mouser")
 class MouserScraper(BrightdataBaseSpecializedScraper):
     """
-    ---
-    agent_id: mouser
-    title: MouserScraper
-    desc: |
-      Ready-made client for Bright Data’s Mouser product pages dataset.
-      All calls run in async mode and return a snapshot-id immediately.
-    example: |
-      from brightdata.ready_scrapers.mouser import MouserScraper
-      s = MouserScraper()
-      snap = s.collect_by_url(["https://www.mouser.com/ProductDetail/ABRACON/ABM8-147456MHZ-D1X-T"])
-      # → 's_abcdef12345'
-    ---
+    Ready-made client for Bright Data’s Mouser dataset.
+
+    >>> from brightdata.ready_scrapers.mouser import MouserScraper
+    >>> s     = MouserScraper()
+    >>> sid   = s.collect_by_url(["https://www.mouser.com/ProductDetail/ABRACON/ABM8-147456MHZ-D1X-T"])
+    >>> rows  = s.poll_until_ready(sid).data
     """
 
+    # ───────────────────────── constructor ───────────────────────────
     def __init__(self, bearer_token: Optional[str] = None, **kw):
-        """
-        Initialize the MouserScraper.
+        super().__init__(_DATASET_COLLECT_BY_URL, bearer_token, **kw)
 
-        Parameters
-        ----------
-        bearer_token : str, optional
-            Bright Data API token.  If omitted, reads BRIGHTDATA_TOKEN from the
-            environment (a .env file is honoured).
-        **kw :
-            Extra keyword-arguments forwarded to the base class.
-        """
-        super().__init__(dataset_id=_DATASET_COLLECT_BY_URL,
-                         bearer_token=bearer_token,
-                         **kw)
-
+    # ──────────────────────── collect_by_url (sync) ──────────────────
     def collect_by_url(self, urls: Sequence[str]) -> str:
         """
-        ---
-        endpoint: collect_by_url
-        desc: Scrape one or more Mouser **product detail pages**.
-        params:
-          urls:
-            type: list[str]
-            desc: Full Mouser product-page URLs.
-        returns:
-          type: str
-          desc: snapshot_id string; poll until ready to retrieve JSON rows.
-        example: |
-          snap = scraper.collect_by_url([
-            "https://www.mouser.com/ProductDetail/Diodes-Incorporated/DMN4035L-13?qs=EBDBlbfErPxf4bkLM3Jagg%3D%3D"
-          ])
-        ---
+        Trigger product-detail scraping for one or many Mouser URLs.
+        Returns **snapshot_id**.
         """
         payload = [{"url": u} for u in urls]
-        return self._trigger(
+        return self.trigger(payload, dataset_id=_DATASET_COLLECT_BY_URL)
+
+    # ─────────────────────── collect_by_url (async) ──────────────────
+    async def collect_by_url_async(self, urls: Sequence[str]) -> str:
+        payload = [{"url": u} for u in urls]
+        return await self._trigger_async(payload, dataset_id=_DATASET_COLLECT_BY_URL)
+
+    # ─────────────────── discover_by_category (stub) ─────────────────
+    def discover_by_category(self, category_urls: Sequence[str]) -> str:
+        """
+        Placeholder for a future category-crawl dataset.
+        Currently triggers the same *collect* dataset but marks type=discover.
+        """
+        payload = [{"category_url": u} for u in category_urls]
+        return self.trigger(
             payload,
             dataset_id=_DATASET_COLLECT_BY_URL,
-            # sync_mode=async is injected by the base class
-        )
-    def discover_by_category():
-        pass
-    
-
-
-
-    async def collect_by_url_async(
-        self,
-        urls: Sequence[str],
-    ) -> str:
-        """
-        Async version of collect_by_url:
-        Triggers the Mouser product-detail scrape without blocking.
-        Returns the Bright Data snapshot_id.
-        """
-        payload = [{"url": u} for u in urls]
-        return await self._trigger_async(
-            payload,
-            dataset_id=_DATASET_COLLECT_BY_URL
+            extra_params={"type": "discover_new", "discover_by": "category"},
         )
 
-    async def discover_by_category_async(
-        self,
-        category_urls: Sequence[str],
-    ) -> str:
-        """
-        Async stub for a future 'discover_by_category' endpoint.
-        Currently Mirror of collect_by_url_async—adjust payload & params
-        once a dedicated dataset is available.
-        """
+    async def discover_by_category_async(self, category_urls: Sequence[str]) -> str:
         payload = [{"category_url": u} for u in category_urls]
         return await self._trigger_async(
             payload,
             dataset_id=_DATASET_COLLECT_BY_URL,
-            extra_params={
-                "type":        "discover_new",
-                "discover_by": "category"
-            }
+            extra_params={"type": "discover_new", "discover_by": "category"},
         )
-

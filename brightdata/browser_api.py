@@ -13,9 +13,18 @@ Quick smoke-test:
 from __future__ import annotations
 
 import asyncio, os, pathlib, time
+import logging
+
+logging.getLogger("asyncio").setLevel(logging.INFO)
+# suppress filelock’s debug chatter
+logging.getLogger("filelock").setLevel(logging.INFO)
+# (if you ever see tldextract noise, you can do the same:)
+logging.getLogger("tldextract").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
+
+
 from datetime import datetime
 from typing import Any
-
 from dotenv import load_dotenv
 from playwright.async_api import (
     async_playwright,
@@ -131,10 +140,11 @@ class BrowserAPI:
             headless=True,
             window_size=self.window_size,
         )
-
+    
     async def _perform_navigation(self, url: str, *, load_state: str | None):
         page = await self._open_page()
-
+        warmed_at = datetime.utcnow()               # ← browser is now hot
+    
         # ── resource blocking (optional) ────────────────────────────
         if self._block_patterns:
             async def _block(route): await route.abort()
@@ -148,8 +158,16 @@ class BrowserAPI:
             if self._use_networkidle_sign
             else (load_state or self._default_load_state)
         )
+        
+        t0 = time.time()
+        logger.debug("→ goto %r (wait_until=%r)", url, wait_until)
+        
         await page.goto(url, timeout=self._nav_timeout, wait_until=wait_until)
-        return page, sent_at
+        
+        elapsed = time.time() - t0
+        logger.debug("← goto %r (wait_until=%r) took %.2fs", url, wait_until, elapsed)
+        
+        return page, warmed_at, sent_at
 
     async def _navigate_and_collect(
         self,
@@ -162,7 +180,7 @@ class BrowserAPI:
         Returns  (html, sent_at, recv_at, warning_msg)
         warning_msg is None on perfect success or a note on soft failures.
         """
-        page, sent_at = await self._perform_navigation(url, load_state=load_state)
+        page, warmed_at, sent_at = await self._perform_navigation(url, load_state=load_state)
 
         try:
             # ── optional hydration wait ─────────────────────────────
@@ -185,13 +203,14 @@ class BrowserAPI:
 
             html    = await page.content()
             recv_at = datetime.utcnow()
-            return html, sent_at, recv_at, None
+            # return html, sent_at, recv_at, None
+            return html, warmed_at, sent_at, recv_at, None
 
         except PWTimeoutError as e:
             html    = await page.content()
             recv_at = datetime.utcnow()
             note    = f"wait_for_selector timeout ({e}). Returned partial HTML."
-            return html, sent_at, recv_at, note
+            return html, warmed_at, sent_at, recv_at, note
 
         finally:
             await page.context.close()
@@ -204,7 +223,7 @@ class BrowserAPI:
         load_state: str | None = None,
     ) -> ScrapeResult:
         try:
-            html, sent_at, recv_at, warn = await self._navigate_and_collect(
+            html, warmed_at,sent_at, recv_at, warn = await self._navigate_and_collect(
                 url, wait_for_main, load_state=load_state
             )
             return _mk(
@@ -214,6 +233,7 @@ class BrowserAPI:
                 data=html,
                 error=warn,
                 request_sent_at=sent_at,
+                browser_warmed_at=warmed_at,
                 data_received_at=recv_at,
             )
         except PWError as e:
@@ -247,7 +267,7 @@ class BrowserAPI:
         res = await self._goto(url, wait_for_main, load_state=load_state)
         if not res.success:
             return res
-
+        
         page, _ = await self._perform_navigation(url, load_state=load_state)
         if wait_for_main and not self._use_networkidle_sign:
             try:
@@ -302,6 +322,15 @@ class BrowserAPI:
 # Smoke-test  ( python -m brightdata.browser_api )
 # ══════════════════════════════════════════════════════════════════
 if __name__ == "__main__":  # pragma: no cover
+
+
+    logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(name)s  %(message)s",
+)
+    
+
+
     import pprint, sys
 
     async def _demo() -> None:
@@ -328,3 +357,7 @@ if __name__ == "__main__":  # pragma: no cover
         await api.close()
     
     asyncio.run(_demo())
+
+
+
+

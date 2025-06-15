@@ -27,7 +27,7 @@ from typing import List
 
 import aiohttp
 
-from brightdata.base_specialized_scraper import ScrapeResult
+from brightdata.models import ScrapeResult
 
 # Default timings – can be overridden per call
 POLL_INTERVAL = 10     # seconds between /progress probes

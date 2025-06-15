@@ -2,100 +2,76 @@
 # ─────────────────────────────────────────────────────────────
 # brightdata/ready_scrapers/linkedin/tests.py
 #
-# Smoke-test for brightdata.ready_scrapers.linkedin.LinkedinScraper.
-# All Bright-Data calls run **asynchronously** (sync_mode=async),
-# so each endpoint first returns only a snapshot-id string.
+# Smoke-test for brightdata.ready_scrapers.linkedin.LinkedInScraper
+#   ▸ no dataset-IDs needed – the scraper owns them internally
+#   ▸ every endpoint returns a snapshot-id (engine forces async mode)
+#   ▸ we block with scraper.poll_until_ready()
 #
 # Run with:
 #     python -m brightdata.ready_scrapers.linkedin.tests
-# ─────────────────────────────────────────────────────────────
-#!/usr/bin/env python3
-# ─────────────────────────────────────────────────────────────
-# brightdata/ready_scrapers/linkedin/tests.py
-#
-# Smoke-test for brightdata.ready_scrapers.linkedin.LinkedInScraper
-#   ▸ no dataset-IDs needed – the scraper holds them internally
-#   ▸ every endpoint runs in async mode → returns snapshot-ids
-#
-# Run with:
-#   python -m brightdata.ready_scrapers.linkedin.tests
 # ─────────────────────────────────────────────────────────────
 import os
 import sys
 from dotenv import load_dotenv
 
 from brightdata.ready_scrapers.linkedin import LinkedInScraper
-from brightdata.utils import poll_until_ready_and_show
+from brightdata.utils import show_scrape_results   # unified pretty-printer
 
-def main():
-    # ─────────────────────────────────────────────────────────
-    # 0.  credentials
-    # ─────────────────────────────────────────────────────────
-    load_dotenv()
-    token = os.getenv("BRIGHTDATA_TOKEN")
-    if not token:
-        sys.exit("Set BRIGHTDATA_TOKEN environment variable first")
+# ─────────────────────────── credentials ───────────────────────────
+load_dotenv()
+if not os.getenv("BRIGHTDATA_TOKEN"):
+    sys.exit("Set BRIGHTDATA_TOKEN environment variable first")
+
+# ─────────────────────────────  main  ──────────────────────────────
+def main() -> None:
+    scraper = LinkedInScraper()           # token from env
     
-    # ─────────────────────────────────────────────────────────
-    # 1.  INSTANTIATE
-    # ─────────────────────────────────────────────────────────
-    scraper = LinkedInScraper()   # token read from env
-
-    # ─────────────────────────────────────────────────────────
-    # 2.  PROFILES ▸ collect_by_url
-    # ─────────────────────────────────────────────────────────
+    # 1. PEOPLE ▸ collect_by_url --------------------------------------------
     people_urls = ["https://www.linkedin.com/in/enes-kuzucu/"]
-    snap = scraper.people_profiles__collect_by_url(people_urls)
-    poll_until_ready_and_show(scraper, "people_profiles__collect_by_url", snap)
+    sid = scraper.people_profiles__collect_by_url(people_urls)
+    res = scraper.poll_until_ready(sid)
+    show_scrape_results("people_profiles__collect_by_url", res)
 
-    # ─────────────────────────────────────────────────────────
-    # 3.  PROFILES ▸ discover_by_name
-    # ─────────────────────────────────────────────────────────
-    snap = scraper.people_profiles__discover_by_name(["Enes Kuzucu"])
-    poll_until_ready_and_show(scraper, "people_profiles__discover_by_name", snap)
-
-    # ─────────────────────────────────────────────────────────
-    # 4.  COMPANY ▸ collect_by_url
-    # ─────────────────────────────────────────────────────────
-    company_urls = ["https://www.linkedin.com/company/bright-data/"]
-    snap = scraper.company_information__collect_by_url(company_urls)
-    poll_until_ready_and_show(scraper, "company_information__collect_by_url", snap)
-
-    # ─────────────────────────────────────────────────────────
-    # 5.  JOBS ▸ collect_by_url
-    # ─────────────────────────────────────────────────────────
-    job_urls = ["https://www.linkedin.com/jobs/view/4231516747/"]
-    snap = scraper.job_listing_information__collect_by_url(job_urls)
-    poll_until_ready_and_show(scraper, "job_listing_information__collect_by_url", snap)
-
-    # ─────────────────────────────────────────────────────────
-    # 6.  JOBS ▸ discover_by_keyword
-    # ─────────────────────────────────────────────────────────
+    # 2. PEOPLE ▸ discover_by_name ------------------------------------------
     queries = [
-        {
-            "location": "Paris",
-            "keyword":  "product manager",
-            "country":  "FR",
-        }
+        {"first_name": "Enes", "last_name": "Kuzucu"}
     ]
-    snap = scraper.job_listing_information__discover_by_keyword(queries)
-    poll_until_ready_and_show(
-        scraper,
-        "job_listing_information__discover_by_keyword",
-        snap
-    )
+    sid = scraper.people_profiles__discover_by_name(queries)
+    res = scraper.poll_until_ready(sid)
+    show_scrape_results("people_profiles__discover_by_name", res)
 
-    # ─────────────────────────────────────────────────────────
-    # 7.  SMART ROUTER ▸ collect_by_url()
-    # ─────────────────────────────────────────────────────────
+    # 3. COMPANY ▸ collect_by_url -------------------------------------------
+    company_urls = ["https://www.linkedin.com/company/bright-data/"]
+    sid = scraper.company_information__collect_by_url(company_urls)
+    res = scraper.poll_until_ready(sid)
+    show_scrape_results("company_information__collect_by_url", res)
+
+    # 4. JOBS ▸ collect_by_url ----------------------------------------------
+    job_urls = ["https://www.linkedin.com/jobs/view/4231516747/"]
+    sid = scraper.job_listing_information__collect_by_url(job_urls)
+    res = scraper.poll_until_ready(sid)
+    show_scrape_results("job_listing_information__collect_by_url", res)
+
+    # 5. JOBS ▸ discover_by_keyword -----------------------------------------
+    queries = [{
+        "location": "Paris",
+        "keyword":  "product manager",
+        "country":  "FR",
+    }]
+    sid = scraper.job_listing_information__discover_by_keyword(queries)
+    res = scraper.poll_until_ready(sid)
+    show_scrape_results("job_listing_information__discover_by_keyword", res)
+
+    # 6. SMART ROUTER ▸ collect_by_url() ------------------------------------
     mixed = [
         "https://www.linkedin.com/in/enes-kuzucu/",
         "https://www.linkedin.com/company/bright-data/",
         "https://www.linkedin.com/jobs/view/4231516747/",
     ]
-    snap_map = scraper.collect_by_url(mixed)
-    for kind, sid in snap_map.items():
-        poll_until_ready_and_show(scraper, f"collect_by_url → {kind}", sid)
+    sid_map = scraper.collect_by_url(mixed)
+    for kind, sid in sid_map.items():
+        res = scraper.poll_until_ready(sid)
+        show_scrape_results(f"collect_by_url → {kind}", res)
 
 
 if __name__ == "__main__":

@@ -2,612 +2,269 @@
 """
 brightdata.ready_scrapers.tiktok.scraper
 ========================================
-
-High-level wrapper around Bright Data’s **TikTok** datasets.
-
-Implemented methods
----------------------
-  • profiles__collect_by_url  
-  • profiles__discover_by_search_url  
-  • posts__collect_by_url  
-  • posts__discover_by_keyword  
-  • posts__discover_by_profile_url  
-  • posts__discover_by_url  
-  • posts_by_url_fast_api__collect_by_url  
-  • posts_by_profile_fast_api__collect_by_url  
-  • posts_by_search_url_fast_api__collect_by_url  
-  • comments__collect_by_url  
+Unified helper for Bright Data’s TikTok datasets (profiles, posts, fast-API
+variants, comments).  Every call runs with ``sync_mode=async`` and therefore
+returns a **snapshot-id** right away; use the *poll* helpers provided by the
+base class to obtain the rows.
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Sequence, Union, DefaultDict
 from collections import defaultdict
+from typing import Any, Dict, List, Optional, Sequence, DefaultDict
 from urllib.parse import urlparse
+import asyncio
 
 from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
 from brightdata.registry import register
-import asyncio
 
-# --------------------------------------------------------------------------- #
-# Static Bright-Data dataset-IDs
-# --------------------------------------------------------------------------- #
+# ───────────────────────────── dataset-IDs ────────────────────────────────
 _DATASET = {
-    "comments":                         "gd_lkf2st302ap89utw5k",
-    "posts_fast":                       "gd_lkf2st302ap89utw5k",
-    "posts_profile_fast":               "gd_m7n5v2gq296pex2f5m",
-    "posts_search_fast":                "gd_m7n5v2gq296pex2f5m",
-    "profiles":                         "gd_l1villgoiiidt09ci",
-    "posts":                            "gd_lu702nij2f790tmv9h",
-    # newly added for the missing endpoints:
-    "posts_discover_url":               "gd_lu702nij2f790tmv9h",
-    "posts_by_url_fast_api":            "gd_m736hjp71lejc5dc0l",
-    "posts_by_search_url_fast_api":     "gd_m7n5ixlw1gc4no56kx",
+    # “classic” datasets
+    "profiles":             "gd_l1villgoiiidt09ci",
+    "posts":                "gd_lu702nij2f790tmv9h",
+    "posts_discover_url":   "gd_lu702nij2f790tmv9h",
+    "comments":             "gd_lkf2st302ap89utw5k",
+    # fast-API variants
+    "posts_fast":                   "gd_lkf2st302ap89utw5k",
+    "posts_profile_fast":           "gd_m7n5v2gq296pex2f5m",
+    "posts_search_fast":            "gd_m7n5v2gq296pex2f5m",
+    "posts_by_url_fast_api":        "gd_m736hjp71lejc5dc0l",
+    "posts_by_search_url_fast_api": "gd_m7n5ixlw1gc4no56kx",
 }
 
-
+# ───────────────────────────── scraper class ──────────────────────────────
 @register("tiktok")
 class TikTokScraper(BrightdataBaseSpecializedScraper):
-    """
-    ---
-    agent_id: tiktok
-    title: TikTokScraper
-    desc: |
-      Unified client for Bright Data’s TikTok endpoints.  All methods
-      run in async mode and immediately return a snapshot-id string.
-    example: |
-      from brightdata.ready_scrapers.tiktok import TikTokScraper
-      s = TikTokScraper()
-      snap = s.collect_comments_by_url([
-          "https://www.tiktok.com/@heymrcat/video/7216019547806092550"
-      ])
-      # → 's_abcdef12345'
-    ---
-    """
+    """High-level TikTok client – wraps eight Bright-Data datasets."""
 
-    def __init__(self, bearer_token: Optional[str] = None, **kw):
-        """
-        Initialize TikTokScraper.
-
-        Parameters
-        ----------
-        bearer_token : str, optional
-            Bright Data API token.  If omitted, reads BRIGHTDATA_TOKEN
-            from the environment (.env supported).
-        **kw :
-            Extra keyword-arguments forwarded to the base class.
-        """
+    # default dataset for quick connectivity checks
+    def __init__(self, bearer_token: Optional[str] = None, **kw) -> None:
         super().__init__(_DATASET["profiles"], bearer_token, **kw)
 
-    # ────────────────────────────────────────────────────────────────────
-    # Generic dispatcher
-    # ────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════
+    # Generic router
+    # ══════════════════════════════════════════════════════════════════════
     def collect_by_url(
         self,
         urls: Sequence[str],
+        *,
         include_comments: bool = False,
     ) -> Dict[str, str]:
-        """
-        Dispatch URLs to the appropriate “collect by URL” endpoint:
-          - profile links  → profiles__collect_by_url()
-          - video links    → posts__collect_by_url()  or comments__collect_by_url()
+        buckets: DefaultDict[str, List[str]] = defaultdict(list)
 
-        Parameters
-        ----------
-        urls : sequence[str]
-            TikTok URLs (profiles `/@name` or posts `/@name/video/<id>`)
-        include_comments : bool
-            If True, video URLs go to comments__collect_by_url()
-            (otherwise to posts__collect_by_url()).
-
-        Returns
-        -------
-        dict[str, str]
-            Mapping of bucket name → snapshot-id, e.g.
-            ```
-            {
-              "profiles": "s_abc…",
-              "posts":    "s_def…",
-              "comments": "s_ghi…"   # only if include_comments=True
-            }
-            ```
-
-        Raises
-        ------
-        ValueError
-            If any URL doesn’t look like a profile or video.
-        """
-        buckets: dict[str, List[str]] = defaultdict(list)
         for u in urls:
-            path = urlparse(u).path or ""
+            path = (urlparse(u).path or "").lower()
             if path.startswith("/@"):
                 buckets["profiles"].append(u)
             elif "/video/" in path:
-                key = "comments" if include_comments else "posts"
-                buckets[key].append(u)
+                buckets["comments" if include_comments else "posts"].append(u)
             else:
                 raise ValueError(f"Unrecognised TikTok URL: {u}")
 
-        result: Dict[str, str] = {}
-        if buckets.get("profiles"):
-            result["profiles"] = self.profiles__collect_by_url(buckets["profiles"])
-        if buckets.get("posts"):
-            result["posts"] = self.posts__collect_by_url(buckets["posts"])
-        if buckets.get("comments"):
-            result["comments"] = self.comments__collect_by_url(buckets["comments"])
-        return result
+        out: Dict[str, str] = {}
+        if buckets["profiles"]:
+            out["profiles"] = self.profiles__collect_by_url(buckets["profiles"])
+        if buckets["posts"]:
+            out["posts"] = self.posts__collect_by_url(buckets["posts"])
+        if buckets["comments"]:
+            out["comments"] = self.comments__collect_by_url(buckets["comments"])
+        return out
 
-    # ────────────────────────────────────────────────────────────────────
-    # 1. Profiles
-    # ────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════
+    # 1.  PROFILES
+    # ══════════════════════════════════════════════════════════════════════
     def profiles__collect_by_url(self, profile_urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: profiles__collect_by_url
-        desc: Scrape TikTok profile metadata (followers, bio, stats).
-        params:
-          profile_urls:
-            type: list[str]
-            desc: Profile URLs, e.g. "https://www.tiktok.com/@username".
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.profiles__collect_by_url([
-            "https://www.tiktok.com/@fofimdmell"
-          ])
-        ---
-        """
         payload = [{"url": u, "country": ""} for u in profile_urls]
-        return self._trigger(
-            payload,
-            dataset_id=_DATASET["profiles"],
-            extra_params={"sync_mode": "async"},
-        )
+        return self._trigger(payload, dataset_id=_DATASET["profiles"])
 
     def profiles__discover_by_search_url(self, queries: Sequence[Dict[str, str]]) -> str:
-        """
-        ---
-        endpoint: profiles__discover_by_search_url
-        desc: Discover TikTok profiles from search/explore URLs.
-        params:
-          queries:
-            type: list[dict]
-            desc: |
-              Each dict must contain:
-                - search_url: explore or search URL
-                - country: ISO-2 code or empty
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.profiles__discover_by_search_url([
-            {"search_url": "https://www.tiktok.com/explore?lang=en", "country": "US"}
-          ])
-        ---
-        """
         return self._trigger(
             list(queries),
             dataset_id=_DATASET["profiles"],
-            extra_params={
-                "sync_mode":   "async",
-                "type":        "discover_new",
-                "discover_by": "search_url",
-            },
+            extra_params={"type": "discover_new", "discover_by": "search_url"},
         )
 
-    # ────────────────────────────────────────────────────────────────────
-    # 2. Posts (fast-api variant)
-    # ────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════
+    # 2.  POSTS  (fast-API default)
+    # ══════════════════════════════════════════════════════════════════════
     def posts__collect_by_url(self, post_urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: posts__collect_by_url
-        desc: Fast-API variant to scrape one or many TikTok post objects.
-        params:
-          post_urls:
-            type: list[str]
-            desc: TikTok post URLs (must contain `/video/`).
-        returns:
-          type: str
-          desc: snapshot_id – poll until ready to retrieve post JSON.
-        example: |
-          snap = scraper.posts__collect_by_url([
-            "https://www.tiktok.com/@user/video/1234567890"
-          ])
-        ---
-        """
-        payload = [{"url": u} for u in post_urls]
         return self._trigger(
-            payload,
+            [{"url": u} for u in post_urls],
             dataset_id=_DATASET["posts_fast"],
-            extra_params={"sync_mode": "async"},
         )
 
     def posts__discover_by_keyword(self, keywords: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: posts__discover_by_keyword
-        desc: Discover posts by hashtag or keyword.
-        params:
-          keywords:
-            type: list[str]
-            desc: Use "#tag" for hashtags or plain text for search.
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.posts__discover_by_keyword(["#funnydogs", "dance"])
-        ---
-        """
         payload = [{"search_keyword": kw, "country": ""} for kw in keywords]
         return self._trigger(
             payload,
             dataset_id=_DATASET["posts"],
-            extra_params={
-                "sync_mode":   "async",
-                "type":        "discover_new",
-                "discover_by": "keyword",
-            },
+            extra_params={"type": "discover_new", "discover_by": "keyword"},
         )
 
     def posts__discover_by_profile_url(self, queries: Sequence[Dict[str, Any]]) -> str:
-        """
-        ---
-        endpoint: posts__discover_by_profile_url
-        desc: Discover posts via profile URL with filters.
-        params:
-          queries:
-            type: list[dict]
-            desc: |
-              Each dict may include:
-                - url (str): profile link
-                - num_of_posts (int): 0 for no limit
-                - posts_to_not_include (list[str])
-                - what_to_collect (str): "Posts"|"Reposts"|"Posts & Reposts"
-                - start_date/end_date ("MM-DD-YYYY")
-                - post_type: "Video"|"Image"|"" 
-                - country: ISO-2 code or empty
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.posts__discover_by_profile_url([{
-            "url":"https://www.tiktok.com/@username",
-            "num_of_posts":10,
-            "what_to_collect":"Posts & Reposts"
-          }])
-        ---
-        """
         return self._trigger(
             list(queries),
             dataset_id=_DATASET["posts"],
-            extra_params={
-                "sync_mode":   "async",
-                "type":        "discover_new",
-                "discover_by": "profile_url",
-            },
+            extra_params={"type": "discover_new", "discover_by": "profile_url"},
         )
 
     def posts__discover_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
-        """
-        ---
-        endpoint: posts__discover_by_url
-        desc: Discover TikTok feed items (discover/channel/music/explore URLs).
-        params:
-          queries:
-            type: list[dict]
-            desc: |
-              Each dict must include:
-                - url (str): e.g. "https://www.tiktok.com/discover/dog"
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.posts__discover_by_url([{"url":"https://www.tiktok.com/discover/dog"}])
-        ---
-        """
         return self._trigger(
             list(queries),
             dataset_id=_DATASET["posts_discover_url"],
-            extra_params={
-                "sync_mode":   "async",
-                "type":        "discover_new",
-                "discover_by": "url",
-            },
+            extra_params={"type": "discover_new", "discover_by": "url"},
         )
 
-    # ────────────────────────────────────────────────────────────────────
-    # 3. Fast-API “by URL” family
-    # ────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════
+    # 3.  Fast-API family
+    # ══════════════════════════════════════════════════════════════════════
     def posts_by_url_fast_api__collect_by_url(self, urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: posts_by_url_fast_api__collect_by_url
-        desc: Fast-API variant to collect arbitrary feed items by URL.
-        params:
-          urls:
-            type: list[str]
-            desc: Full TikTok URLs (discover/channel/music/explore).
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.posts_by_url_fast_api__collect_by_url([
-            "https://www.tiktok.com/discover/dog1",
-            "https://www.tiktok.com/channel/anime",
-            "https://www.tiktok.com/music/Some-Track-ID",
-            "https://www.tiktok.com/explore?lang=en"
-          ])
-        ---
-        """
-        payload = [{"url": u} for u in urls]
         return self._trigger(
-            payload,
+            [{"url": u} for u in urls],
             dataset_id=_DATASET["posts_by_url_fast_api"],
-            extra_params={"sync_mode": "async"},
         )
 
     def posts_by_profile_fast_api__collect_by_url(self, urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: posts_by_profile_fast_api__collect_by_url
-        desc: Fast-API variant to collect the latest posts from profiles.
-        params:
-          urls:
-            type: list[str]
-            desc: Profile URLs, e.g. "https://www.tiktok.com/@bbc".
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.posts_by_profile_fast_api__collect_by_url([
-            "https://www.tiktok.com/@bbc",
-            "https://www.tiktok.com/@portalotempo"
-          ])
-        ---
-        """
-        payload = [{"url": u} for u in urls]
         return self._trigger(
-            payload,
+            [{"url": u} for u in urls],
             dataset_id=_DATASET["posts_profile_fast"],
-            extra_params={"sync_mode": "async"},
         )
 
-    def posts_by_search_url_fast_api__collect_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
-        """
-        ---
-        endpoint: posts_by_search_url_fast_api__collect_by_url
-        desc: Fast-API variant to collect feed items from search URLs.
-        params:
-          queries:
-            type: list[dict]
-            desc: |
-              Each dict may include:
-                - url (str): full search URL (with q=…, t=…)
-                - num_of_posts (int, optional)
-                - country (str, optional)
-        returns:
-          type: str
-          desc: snapshot_id
-        example: |
-          snap = scraper.posts_by_search_url_fast_api__collect_by_url([
-            {"url":"https://www.tiktok.com/search?lang=en&q=cats&t=…","country":""},
-            {"url":"https://www.tiktok.com/search?lang=en&q=dogs&t=…","num_of_posts":10,"country":"US"}
-          ])
-        ---
-        """
+    def posts_by_search_url_fast_api__collect_by_url(
+        self, queries: Sequence[Dict[str, Any]]
+    ) -> str:
         return self._trigger(
             list(queries),
             dataset_id=_DATASET["posts_by_search_url_fast_api"],
-            extra_params={"sync_mode": "async"},
         )
 
-    # ────────────────────────────────────────────────────────────────────
-    # 4. Comments
-    # ────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════
+    # 4.  COMMENTS
+    # ══════════════════════════════════════════════════════════════════════
     def comments__collect_by_url(self, post_urls: Sequence[str]) -> str:
-        """
-        ---
-        endpoint: comments__collect_by_url
-        desc: Retrieve comments for specified TikTok post URLs.
-        params:
-          post_urls:
-            type: list[str]
-            desc: Full TikTok post URLs (must contain `/video/`).
-        returns:
-          type: str
-          desc: snapshot_id – poll this until ready to fetch results.
-        example: |
-          snap = scraper.comments__collect_by_url([
-            "https://www.tiktok.com/@heymrcat/video/7216019547806092550"
-          ])
-        ---
-        """
-        payload = [{"url": u} for u in post_urls]
         return self._trigger(
-            payload,
+            [{"url": u} for u in post_urls],
             dataset_id=_DATASET["comments"],
-            extra_params={"sync_mode": "async"},
         )
 
-    # ────────────────────────────────────────────────────────────────────
-    # Internal passthrough
-    # ────────────────────────────────────────────────────────────────────
-    def _trigger(
-        self,
-        data: List[Dict[str, Any]],
-        *,
-        dataset_id: str,
-        include_errors: bool = True,
-        extra_params: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        return super()._trigger(
-            data,
-            dataset_id=dataset_id,
-            include_errors=include_errors,
-            extra_params=extra_params,
-        )
-    
-
-
-
-
-
+    # ══════════════════════════════════════════════════════════════════════
+    # 5.  Async mirrors
+    # ══════════════════════════════════════════════════════════════════════
     async def collect_by_url_async(
         self,
         urls: Sequence[str],
         include_comments: bool = False,
     ) -> Dict[str, str]:
-        """
-        Async version of collect_by_url(): bucket URLs then trigger each
-        via _trigger_async, returning {bucket: snapshot_id}.
-        """
+        # bucket exactly as in sync path
         buckets: DefaultDict[str, List[str]] = defaultdict(list)
         for u in urls:
-            path = urlparse(u).path or ""
-            if path.startswith("/@"):
+            p = (urlparse(u).path or "").lower()
+            if p.startswith("/@"):
                 buckets["profiles"].append(u)
-            elif "/video/" in path:
-                key = "comments" if include_comments else "posts"
-                buckets[key].append(u)
+            elif "/video/" in p:
+                buckets["comments" if include_comments else "posts"].append(u)
             else:
                 raise ValueError(f"Unrecognised TikTok URL: {u}")
 
         tasks: Dict[str, asyncio.Task[str]] = {}
-        if buckets.get("profiles"):
+        if buckets["profiles"]:
             tasks["profiles"] = asyncio.create_task(
                 self._trigger_async(
                     [{"url": u, "country": ""} for u in buckets["profiles"]],
-                    dataset_id=_DATASET["profiles"]
+                    dataset_id=_DATASET["profiles"],
                 )
             )
-        if buckets.get("posts"):
+        if buckets["posts"]:
             tasks["posts"] = asyncio.create_task(
                 self._trigger_async(
                     [{"url": u} for u in buckets["posts"]],
-                    dataset_id=_DATASET["posts_fast"]
+                    dataset_id=_DATASET["posts_fast"],
                 )
             )
-        if buckets.get("comments"):
+        if buckets["comments"]:
             tasks["comments"] = asyncio.create_task(
                 self._trigger_async(
                     [{"url": u} for u in buckets["comments"]],
-                    dataset_id=_DATASET["comments"]
+                    dataset_id=_DATASET["comments"],
                 )
             )
 
         snaps = await asyncio.gather(*tasks.values())
-        result = dict(zip(tasks.keys(), snaps))
-        return result
+        return dict(zip(tasks.keys(), snaps))
 
-    async def profiles__collect_by_url_async(
-        self,
-        profile_urls: Sequence[str]
-    ) -> str:
-        payload = [{"url": u, "country": ""} for u in profile_urls]
+    # ---- one-liner async helpers ----------------------------------------
+    async def profiles__collect_by_url_async(self, urls: Sequence[str]) -> str:
         return await self._trigger_async(
-            payload,
-            dataset_id=_DATASET["profiles"]
+            [{"url": u, "country": ""} for u in urls],
+            dataset_id=_DATASET["profiles"],
         )
 
     async def profiles__discover_by_search_url_async(
-        self,
-        queries: Sequence[Dict[str, Any]]
+        self, queries: Sequence[Dict[str, Any]]
     ) -> str:
         return await self._trigger_async(
             list(queries),
             dataset_id=_DATASET["profiles"],
-            extra_params={
-                "type":        "discover_new",
-                "discover_by": "search_url",
-            }
+            extra_params={"type": "discover_new", "discover_by": "search_url"},
         )
 
-    async def posts__collect_by_url_async(
-        self,
-        post_urls: Sequence[str]
-    ) -> str:
-        payload = [{"url": u} for u in post_urls]
+    async def posts__collect_by_url_async(self, post_urls: Sequence[str]) -> str:
         return await self._trigger_async(
-            payload,
-            dataset_id=_DATASET["posts_fast"]
+            [{"url": u} for u in post_urls],
+            dataset_id=_DATASET["posts_fast"],
         )
 
-    async def posts__discover_by_keyword_async(
-        self,
-        keywords: Sequence[str]
-    ) -> str:
-        payload = [{"search_keyword": kw, "country": ""} for kw in keywords]
+    async def posts__discover_by_keyword_async(self, keywords: Sequence[str]) -> str:
         return await self._trigger_async(
-            payload,
+            [{"search_keyword": kw, "country": ""} for kw in keywords],
             dataset_id=_DATASET["posts"],
-            extra_params={
-                "type":        "discover_new",
-                "discover_by": "keyword",
-            }
+            extra_params={"type": "discover_new", "discover_by": "keyword"},
         )
 
     async def posts__discover_by_profile_url_async(
-        self,
-        queries: Sequence[Dict[str, Any]]
+        self, queries: Sequence[Dict[str, Any]]
     ) -> str:
         return await self._trigger_async(
             list(queries),
             dataset_id=_DATASET["posts"],
-            extra_params={
-                "type":        "discover_new",
-                "discover_by": "profile_url",
-            }
+            extra_params={"type": "discover_new", "discover_by": "profile_url"},
         )
 
     async def posts__discover_by_url_async(
-        self,
-        queries: Sequence[Dict[str, Any]]
+        self, queries: Sequence[Dict[str, Any]]
     ) -> str:
         return await self._trigger_async(
             list(queries),
             dataset_id=_DATASET["posts_discover_url"],
-            extra_params={
-                "type":        "discover_new",
-                "discover_by": "url",
-            }
+            extra_params={"type": "discover_new", "discover_by": "url"},
         )
 
     async def posts_by_url_fast_api__collect_by_url_async(
-        self,
-        urls: Sequence[str]
+        self, urls: Sequence[str]
     ) -> str:
-        payload = [{"url": u} for u in urls]
         return await self._trigger_async(
-            payload,
-            dataset_id=_DATASET["posts_by_url_fast_api"]
+            [{"url": u} for u in urls],
+            dataset_id=_DATASET["posts_by_url_fast_api"],
         )
 
     async def posts_by_profile_fast_api__collect_by_url_async(
-        self,
-        urls: Sequence[str]
+        self, urls: Sequence[str]
     ) -> str:
-        payload = [{"url": u} for u in urls]
         return await self._trigger_async(
-            payload,
-            dataset_id=_DATASET["posts_profile_fast"]
+            [{"url": u} for u in urls],
+            dataset_id=_DATASET["posts_profile_fast"],
         )
 
     async def posts_by_search_url_fast_api__collect_by_url_async(
-        self,
-        queries: Sequence[Dict[str, Any]]
+        self, queries: Sequence[Dict[str, Any]]
     ) -> str:
         return await self._trigger_async(
             list(queries),
-            dataset_id=_DATASET["posts_by_search_url_fast_api"]
+            dataset_id=_DATASET["posts_by_search_url_fast_api"],
         )
 
-    async def comments__collect_by_url_async(
-        self,
-        post_urls: Sequence[str]
-    ) -> str:
-        payload = [{"url": u} for u in post_urls]
+    async def comments__collect_by_url_async(self, post_urls: Sequence[str]) -> str:
         return await self._trigger_async(
-            payload,
-            dataset_id=_DATASET["comments"]
+            [{"url": u} for u in post_urls],
+            dataset_id=_DATASET["comments"],
         )

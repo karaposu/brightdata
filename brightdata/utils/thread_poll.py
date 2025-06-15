@@ -35,7 +35,8 @@ worker.start()                   # returns immediately
 from __future__ import annotations
 import json, time, threading, pathlib, queue, os
 from typing import List, Callable, Optional
-from ..base_specialized_scraper import ScrapeResult, BrightdataBaseSpecializedScraper
+from ..base_specialized_scraper import  BrightdataBaseSpecializedScraper
+from brightdata.models import ScrapeResult
 
 class PollWorker(threading.Thread):
     """

@@ -120,7 +120,7 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
         ---
         """
         payload = [{"url": u} for u in post_urls]
-        return self._trigger(
+        return self.trigger(
             payload,
             dataset_id=_DATASET["posts"],
             extra_params={"sync_mode": "async"},
@@ -152,7 +152,7 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
           ])
         ---
         """
-        return self._trigger(
+        return self.trigger(
             list(queries),
             dataset_id=_DATASET["posts"],
             extra_params={
@@ -191,7 +191,7 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
           ])
         ---
         """
-        return self._trigger(
+        return self.trigger(
             list(queries),
             dataset_id=_DATASET["posts"],
             extra_params={
@@ -228,7 +228,7 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
           ])
         ---
         """
-        return self._trigger(
+        return self.trigger(
             list(queries),
             dataset_id=_DATASET["comments"],
             extra_params={"sync_mode": "async"},
