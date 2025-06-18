@@ -98,7 +98,7 @@ def scrape_url(
         return {
             b: scraper.poll_until_ready(
                    sid,
-                   poll=poll_interval,
+                   poll_interval=poll_interval,
                    timeout=poll_timeout
                )
             for b, sid in snap.items()
@@ -106,7 +106,7 @@ def scrape_url(
 
     return scraper.poll_until_ready(
         snap,
-        poll=poll_interval,
+        poll_interval=poll_interval,
         timeout=poll_timeout,
     )
 
