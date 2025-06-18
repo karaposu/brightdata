@@ -1,0 +1,6 @@
+When to pick which
+If you just need to slow things down so your one CDP session doesn’t choke, use a semaphore on top of the single-connection BrowserAPI.
+
+If you need higher total throughput and are willing to pay for a handful of extra CDP sessions, use a pool of BrowserAPI instances.
+
+You can also combine them: make a pool of, say, 4 CDP sessions, and put a semaphore of 8 around each session so you never push more than 8 in parallel per session.

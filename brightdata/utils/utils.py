@@ -58,6 +58,7 @@ def _make_result_browserapi(                       # ← distinct name
         request_sent_at=request_sent_at,
         browser_warmed_at=browser_warmed_at,
         data_received_at=data_received_at,
+        html_char_size=(len(data) if isinstance(data, str) else None),
         event_loop_id=id(asyncio.get_running_loop()),
     )
 
@@ -97,7 +98,11 @@ def show_a_scrape_result(label: str, res: ScrapeResult) -> None:
         f"{len(polls)}×  [{_fmt(polls[0])} … {_fmt(polls[-1])}]"
         if polls else "–"
     )
-    cost = f"{res.cost:.2f}$" if res.cost is not None else "–"
+    # cost = f"{res.cost:.2f}$" if res.cost is not None else "–"
+    # cost = f"{res.cost}$" if res.cost is not None else "–"
+    cost = f"{res.cost:.6f}$" if res.cost is not None else "–"
+
+    
     sid  = (res.snapshot_id or "–")[:12] + ("…" if res.snapshot_id and len(res.snapshot_id) > 12 else "")
 
     print(f"\n{label}")
@@ -107,6 +112,7 @@ def show_a_scrape_result(label: str, res: ScrapeResult) -> None:
     print(f"{'key count':25s}: {total_keys}")
     print(f"{'snapshot_id':25s}: {sid}")
     print(f"{'cost':25s}: {cost}")
+    print(f"{'html_char_size':25s}: {res.html_char_size or '–'}")
     if res.browser_warmed_at:
         print(f"{'browser_warmed_at':25s}: {_fmt(res.browser_warmed_at)}")
     print(f"{'request_sent_at':25s}: {_fmt(res.request_sent_at)}")

@@ -11,8 +11,12 @@ from brightdata.models import ScrapeResult
 log = logging.getLogger(__name__)
 
 
+
+
 class BrightdataBaseSpecializedScraper:
     # legacy constants (for poll helpers)
+    COST_PER_RECORD = 0.001 
+
     trigger_url      = "https://api.brightdata.com/datasets/v3/trigger"
     status_base_url  = "https://api.brightdata.com/datasets/v3/progress"
     result_base_url  = "https://api.brightdata.com/datasets/v3/snapshot"
@@ -61,8 +65,20 @@ class BrightdataBaseSpecializedScraper:
     def get_data(self, snapshot_id: str) -> ScrapeResult:
         status = _run_blocking(self._engine.get_status(snapshot_id))
         if status == "ready":
-            return _run_blocking(self._engine.fetch_result(snapshot_id))
+
+            # return _run_blocking(self._engine.fetch_result(snapshot_id))
+            res = _run_blocking(self._engine.fetch_result(snapshot_id))
+            # if isinstance(res.data, list):
+            #     res.cost = len(res.data) * self.COST_PER_RECORD
+            return res
+
+        
+
+
         if status in {"error", "failed"}:
+
+
+
             return ScrapeResult(False, f"{self.status_base_url}/{snapshot_id}",
                                 status="error", error="job_failed",
                                 snapshot_id=snapshot_id)
@@ -73,8 +89,16 @@ class BrightdataBaseSpecializedScraper:
     async def get_data_async(self, snapshot_id: str) -> ScrapeResult:
         status = await self._engine.get_status(snapshot_id)
         if status == "ready":
-            return await self._engine.fetch_result(snapshot_id)
+
+            res = await self._engine.fetch_result(snapshot_id)
+            # if isinstance(res.data, list):
+            #     res.cost = len(res.data) * self.COST_PER_RECORD
+            return res
+        
+
         if status in {"error", "failed"}:
+
+
             return ScrapeResult(False, f"{self.status_base_url}/{snapshot_id}",
                                 status="error", error="job_failed",
                                 snapshot_id=snapshot_id)

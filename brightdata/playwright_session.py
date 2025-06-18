@@ -38,6 +38,20 @@ class PlaywrightSession:
     _instance: "PlaywrightSession | None" = None
 
     # ─────────────────────────────────────────────────────────────── class api
+
+    @classmethod
+    async def close_all(cls):
+         """
+         Permanently tear down the single global session (browser + CDP).
+         """
+         if cls._instance:
+             try:
+                 await cls._instance._browser.close()
+             except Exception:
+                 pass
+             cls._instance = None
+
+
     @classmethod
     async def get(
         cls,

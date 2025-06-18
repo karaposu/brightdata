@@ -40,6 +40,8 @@ class BrightdataEngine:
     _snap_meta: Dict[str, Dict[str, Any]] = {}
     _trace_lock = asyncio.Lock()
     _ctr: int = 0
+    
+    COST_PER_RECORD = 0.001 
 
     def __init__(self, bearer_token: Optional[str] = None, *, timeout: int = 40):
         self._token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
@@ -138,7 +140,7 @@ class BrightdataEngine:
                                   .setdefault("snapshot_polled_at", []) \
                                   .append(datetime.utcnow())
         return status
-
+    
     async def fetch_result(self, snapshot_id: str) -> ScrapeResult:
         """
         One GET to /snapshot/{snapshot_id} → returns a ScrapeResult.
@@ -163,14 +165,24 @@ class BrightdataEngine:
                 ok, status, error, data = False, "error", "fetch_error", None
                 log.debug("fetch_result %s error: %s", snapshot_id, e)
 
-        return self._make_result(
+        cost: Optional[float] = None
+        if isinstance(data, list):
+            cost = len(data) * self.COST_PER_RECORD
+        
+
+        scrape_res =self._make_result(
             success=ok,
             status=status,
             snapshot_id=snapshot_id,
             url=url,
             data=data,
             error=error,
+            cost=cost
         )
+        return scrape_res
+    
+
+
 
     async def poll_until_ready(
         self,
@@ -208,6 +220,7 @@ class BrightdataEngine:
         url: str,
         data: Any = None,
         error: Optional[str] = None,
+        cost: Optional[float]= None
     ) -> ScrapeResult:
         meta = BrightdataEngine._snap_meta.get(snapshot_id, {})
         root = tldextract.extract(url).domain or None
@@ -231,7 +244,7 @@ class BrightdataEngine:
             data=data,
             error=error,
             snapshot_id=snapshot_id,
-            cost=None,
+            cost=cost,
             fallback_used=False,
             root_domain=root,
             event_loop_id=loop_id,

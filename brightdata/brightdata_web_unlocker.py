@@ -1,13 +1,23 @@
 # brightdata_web_unlocker.py
+
+# to run   python -m brightdata.brightdata_web_unlocker
 import os
 import requests
 from dotenv import load_dotenv
 import pathlib
 import tldextract
 
+import asyncio
+import aiohttp
+import logging
+
 from brightdata.models import ScrapeResult
 
 class BrightdataWebUnlocker:
+
+    COST_PER_THOUSAND = 1.50  # USD per 1000 requests
+    COST_PER_REQUEST = COST_PER_THOUSAND / 1000.0
+
     def __init__(self, BRIGHTDATA_WEBUNCLOKCER_BEARER=None, ZONE_STRING=None):
         load_dotenv()
         self.bearer = BRIGHTDATA_WEBUNCLOKCER_BEARER or os.getenv('BRIGHTDATA_WEBUNCLOKCER_BEARER')
@@ -15,6 +25,8 @@ class BrightdataWebUnlocker:
         self.format = "raw"
         if not (self.bearer and self.zone):
             raise ValueError("Set BRIGHTDATA_WEBUNCLOKCER_BEARER and ZONE_STRING")
+        
+        self._endpoint = "https://api.brightdata.com/request"
 
     def _make_result(
         self,
@@ -33,7 +45,8 @@ class BrightdataWebUnlocker:
             data=data,
             error=error,
             snapshot_id=None,
-            cost=None,
+            # cost=None,
+            cost=self.COST_PER_REQUEST if success else 0.0,
             fallback_used=False,
             root_domain=ext.domain or None
         )
@@ -58,6 +71,7 @@ class BrightdataWebUnlocker:
                 status="ready",
                 data=resp.text
             )
+        
         except requests.HTTPError as e:
             return self._make_result(
                 url=target_weblink,
@@ -116,6 +130,59 @@ class BrightdataWebUnlocker:
         if not res.success:
             return res
         return self.download_source(site, filename)
+    
+
+
+
+    async def get_source_async(self, target_weblink: str) -> ScrapeResult:
+        """
+        Async unlock + HTML fetch via aiohttp.
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.bearer}"
+        }
+        payload = {"zone": self.zone, "url": target_weblink, "format": "raw"}
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as sess:
+                async with sess.post(self._endpoint, headers=headers, json=payload) as resp:
+                    text = await resp.text()
+                    if resp.status >= 400:
+                        raise aiohttp.ClientResponseError(
+                            request_info=resp.request_info,
+                            history=resp.history,
+                            status=resp.status,
+                            message=text,
+                            headers=resp.headers,
+                        )
+            return self._make_result(
+                url=target_weblink,
+                success=True,
+                status="ready",
+                data=text
+            )
+        except aiohttp.ClientResponseError as e:
+            return self._make_result(
+                url=target_weblink,
+                success=False,
+                status="error",
+                error=f"HTTP {e.status}"
+            )
+        except Exception as e:
+            return self._make_result(
+                url=target_weblink,
+                success=False,
+                status="error",
+                error=str(e)
+            )
+        
+    async def get_source_safe_async(self, target_weblink: str) -> ScrapeResult:
+        """Async-safe: never raises."""
+        res = await self.get_source_async(target_weblink)
+        if not res.success:
+            res.status = "error"
+        return res
 
     def test_unlocker(self) -> ScrapeResult:
         """
@@ -136,3 +203,20 @@ class BrightdataWebUnlocker:
             status="error",
             error="empty_or_failed"
         )
+    
+
+if __name__ == "__main__":
+
+   
+    logging.basicConfig(level=logging.DEBUG)
+    async def main():
+        unlocker = BrightdataWebUnlocker()
+        url = "https://example.com"
+        print(f"\n→ fetching {url!r} via web-unlocker…")
+        res = await unlocker.get_source_async(url)
+        print(f" success       : {res.success}")
+        print(f" status        : {res.status}")
+        print(f" root domain   : {res.root_domain}")
+        print(f" html length   : {len(res.data or '')} chars")
+        print(f" cost          : {res.cost:.6f}$")
+    asyncio.run(main())

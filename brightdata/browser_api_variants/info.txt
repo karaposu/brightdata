@@ -1,0 +1,55 @@
+what we discovered is that Bright Data’s CDP endpoint imposes a hard cap on how many navigations you can do over a single connection. In our first smoke-test we did:
+
+python
+Copy
+Edit
+session = await IsolatedPlaywrightSession.create()
+for url in urls:
+    page = await session.new_page()
+    await page.goto(url, …)       # reuse the same CDP connection
+    await page.context.close()
+await session.close()
+On the second URL we hit:
+
+vbnet
+Copy
+Edit
+Error: Page.goto: Protocol error (Page.navigate): Page.navigate limit reached
+Workaround: one CDP session per URL
+The simplest fix is to spin up a fresh CDP connection for each URL, so you never exceed the per-connection navigation limit. That is, move the .create() / .close() inside your loop (or inside your fetch() helper):
+
+python
+Copy
+Edit
+async def fetch(url: str) -> None:
+    session = await IsolatedPlaywrightSession.create()
+    try:
+        page = await session.new_page()
+        t0 = time.time()
+        await page.goto(url, timeout=60_000, wait_until="domcontentloaded")
+        html = await page.content()
+        print(f"↳ fetched {len(html)} chars in {time.time() - t0:.2f}s")
+        await page.context.close()
+    finally:
+        await session.close()    # tear down browser + Playwright
+And then:
+
+python
+Copy
+Edit
+async def main():
+    for url in ["https://example.com", "https://openai.com"]:
+        print(f"\n=== fetching {url!r} ===")
+        await fetch(url)
+By creating and closing the CDP session around each navigation, you isolate every request completely and never bump into the “navigate limit” on the remote side.
+
+Before vs. After
+Before:
+
+1 session → 2 navigations → hit “Page.navigate limit reached”
+
+After:
+
+2 sessions → 2 navigations (1 per session) → no errors
+
+This per-URL isolation is exactly what our fallback_strategies.nopool.fetch() helper already does, and it’s the quickest way to get a robust smoke-test without introducing any pooling or throttling abstractions.

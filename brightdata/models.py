@@ -23,4 +23,6 @@ class ScrapeResult:
     data_received_at:    Optional[datetime] = None   # when /snapshot?format=json succeeded
     event_loop_id: Optional[int] = None                      # id(asyncio.get_running_loop())
     browser_warmed_at: datetime | None = None
-
+    html_char_size: int | None = None
+    
+    
