@@ -36,25 +36,53 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
     # ══════════════════════════════════════════════════════════════
     # 0. SMART ROUTER
     # ══════════════════════════════════════════════════════════════
-    def collect_by_url(self, urls: Sequence[str]) -> Dict[str, str]:
-        buckets: dict[str, List[str]] = {"people": [], "company": [], "job": []}
-        for u in urls:
-            kind = self._classify(u)
-            if not kind:
-                raise ValueError(f"Unrecognised LinkedIn URL: {u}")
-            buckets[kind].append(u)
 
-        self._url_buckets = {k: v for k, v in buckets.items() if v}
+    def collect_by_url(self, url: str) -> str:
+        """
+        Trigger a LinkedIn scrape for exactly one URL and return its snapshot_id.
 
-        out: Dict[str, str] = {}
-        if buckets["people"]:
-            out["people"] = self.people_profiles__collect_by_url(buckets["people"])
-        if buckets["company"]:
-            out["company"] = self.company_information__collect_by_url(buckets["company"])
-        if buckets["job"]:
-            out["job"] = self.job_listing_information__collect_by_url(buckets["job"])
-        return out
+        :param url: a single LinkedIn URL
+        :returns: snapshot_id for that URL
+        :raises ValueError: if the URL is unrecognised or classification failed
+        """
+        kind = self._classify(url)
+        if kind not in {"people", "company", "job"}:
+            raise ValueError(f"Unrecognised LinkedIn URL: {url!r}")
 
+        # Remember which URL we asked for (mostly for later polling/debug)
+        self._url_buckets = {kind: [url]}
+
+        # Dispatch to the correct underlying method.
+        # Each of these expects a Sequence[str] and returns a snapshot_id.
+        if kind == "people":
+            return self.people_profiles__collect_by_url([url])
+        elif kind == "company":
+            return self.company_information__collect_by_url([url])
+        else:  # kind == "job"
+            return self.job_listing_information__collect_by_url([url])
+        
+
+    
+    async def collect_by_url_async(self, url: str) -> str:
+        """
+        Async version of collect_by_url: accept one URL, classify it,
+        and dispatch to the right async collector.
+        """
+        kind = self._classify(url)
+        if kind not in {"people", "company", "job"}:
+            raise ValueError(f"Unrecognised LinkedIn URL: {url!r}")
+
+        # remember for debugging
+        self._url_buckets = {kind: [url]}
+
+        if kind == "people":
+            return await self.people_profiles__collect_by_url_async([url])
+        elif kind == "company":
+            return await self.company_information__collect_by_url_async([url])
+        else:  # kind == "job"
+            return await self.job_listing_information__collect_by_url_async([url])
+        
+    
     def _classify(self, url: str) -> str | None:
         path = urlparse(url).path
         if self._RX_PEOPLE.match(path):  return "people"
@@ -132,34 +160,9 @@ class LinkedInScraper(BrightdataBaseSpecializedScraper):
     def posts__discover_by_url(self, q):                    ...
     def people_search__collect_by_url(self, q):             ...
 
-    # =================================================================
-    # Async variants – unchanged, just keep using _trigger_async
-    # =================================================================
-    async def collect_by_url_async(self, urls: Sequence[str]) -> Dict[str, str]:
-        buckets = self._url_buckets = defaultdict(list)
-        for u in urls:
-            kind = self._classify(u)
-            if not kind:
-                raise ValueError(f"Unrecognised LinkedIn URL: {u}")
-            buckets[kind].append(u)
-
-        tasks: Dict[str, asyncio.Task[str]] = {}
-        if buckets["people"]:
-            tasks["people"] = asyncio.create_task(
-                self._trigger_async([{"url": u} for u in buckets["people"]], _DATASET_PEOPLE)
-            )
-        if buckets["company"]:
-            tasks["company"] = asyncio.create_task(
-                self._trigger_async([{"url": u} for u in buckets["company"]], _DATASET_COMPANY)
-            )
-        if buckets["job"]:
-            tasks["job"] = asyncio.create_task(
-                self._trigger_async([{"url": u} for u in buckets["job"]], _DATASET_JOBS)
-            )
-
-        snaps = await asyncio.gather(*tasks.values())
-        return dict(zip(tasks.keys(), snaps))
-
+  
+   
+    
     # individual async wrappers (examples)
     async def people_profiles__collect_by_url_async(self, urls: Sequence[str]) -> str:
         return await self._trigger_async([{"url": u} for u in urls], _DATASET_PEOPLE)

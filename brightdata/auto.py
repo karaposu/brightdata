@@ -93,16 +93,16 @@ def scrape_url(
 
     ScraperCls = get_scraper_for(url)
     scraper    = ScraperCls(bearer_token=bearer_token)
-
-    if isinstance(snap, dict):
-        return {
-            b: scraper.poll_until_ready(
-                   sid,
-                   poll_interval=poll_interval,
-                   timeout=poll_timeout
-               )
-            for b, sid in snap.items()
-        }
+    
+    # if isinstance(snap, dict):
+    #     return {
+    #         b: scraper.poll_until_ready(
+    #                sid,
+    #                poll_interval=poll_interval,
+    #                timeout=poll_timeout
+    #            )
+    #         for b, sid in snap.items()
+    #     }
 
     return scraper.poll_until_ready(
         snap,

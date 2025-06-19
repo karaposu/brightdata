@@ -83,14 +83,14 @@ def show_a_scrape_result(label: str, res: ScrapeResult) -> None:
     def _fmt(ts):
         return ts.strftime("%Y-%m-%d %H:%M:%S") if ts else "–"
 
-    rows = len(res.data) if isinstance(res.data, list) else "n/a"
-
+    # rows = len(res.data) if isinstance(res.data, list) else "n/a"
+    
     # how many keys in a row
     if isinstance(res.data, list) and res.data and isinstance(res.data[0], dict):
         total_keys = len(res.data[0])
     else:
         total_keys = "–"
-
+    
 
 
     polls = res.snapshot_polled_at or []
@@ -104,12 +104,12 @@ def show_a_scrape_result(label: str, res: ScrapeResult) -> None:
 
     
     sid  = (res.snapshot_id or "–")[:12] + ("…" if res.snapshot_id and len(res.snapshot_id) > 12 else "")
-
+    
     print(f"\n{label}")
     print("─" * len(label))
     print(f"{'success':25s}: {res.success}")
-    print(f"{'data rows':25s}: {rows}")
-    print(f"{'key count':25s}: {total_keys}")
+    print(f"{'row_count':25s}: {res.row_count}")
+    print(f"{'field_count':25s}: {res.field_count}")
     print(f"{'snapshot_id':25s}: {sid}")
     print(f"{'cost':25s}: {cost}")
     print(f"{'html_char_size':25s}: {res.html_char_size or '–'}")

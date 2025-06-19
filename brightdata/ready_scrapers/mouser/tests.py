@@ -27,12 +27,11 @@ def main() -> None:
 
     # ── instantiate scraper ──────────────────────────────────
     scraper = MouserScraper()          # token is read from env var
-
+    
     # ── COLLECT BY URL ───────────────────────────────────────
-    product_urls = [
-        "https://www.mouser.com/ProductDetail/Diodes-Incorporated/DMN4035L-13?qs=EBDBlbfErPxf4bkLM3Jagg%3D%3D",
-    ]
-    snapshot_id = scraper.collect_by_url(product_urls)
+    product_url =  "https://www.mouser.com/ProductDetail/Diodes-Incorporated/DMN4035L-13?qs=EBDBlbfErPxf4bkLM3Jagg%3D%3D"
+    
+    snapshot_id = scraper.collect_by_url(product_url)
     result      = scraper.poll_until_ready(snapshot_id)
     
     show_scrape_results("collect_by_url", result)

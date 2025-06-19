@@ -166,9 +166,24 @@ class BrightdataEngine:
                 log.debug("fetch_result %s error: %s", snapshot_id, e)
 
         cost: Optional[float] = None
-        if isinstance(data, list):
-            cost = len(data) * self.COST_PER_RECORD
+        row_count: Optional[int] = None
+        field_count: Optional[int] = None
         
+        
+        if isinstance(data, list):
+            row_count = len(data)
+            cost      = row_count * self.COST_PER_RECORD
+            if data and isinstance(data[0], dict):
+                    field_count = len(data[0])
+
+        elif isinstance(data, dict):
+            row_count = 1
+            cost      = 1 * self.COST_PER_RECORD
+            field_count = len(data)
+        else:
+            row_count = 0
+            cost      = 0.0
+            field_count = 0
 
         scrape_res =self._make_result(
             success=ok,
@@ -177,7 +192,9 @@ class BrightdataEngine:
             url=url,
             data=data,
             error=error,
-            cost=cost
+            cost=cost,
+            row_count=row_count,
+            field_count=field_count,
         )
         return scrape_res
     
@@ -198,7 +215,8 @@ class BrightdataEngine:
         while True:
             status = await self.get_status(snapshot_id)
             if status in {"ready", "error"}:
-                return await self.fetch_result(snapshot_id)
+                scrape_res= await self.fetch_result(snapshot_id)
+                return scrape_res
 
             if time.time() - start >= timeout:
                 # give up
@@ -220,11 +238,14 @@ class BrightdataEngine:
         url: str,
         data: Any = None,
         error: Optional[str] = None,
-        cost: Optional[float]= None
+        cost: Optional[float]= None,
+        row_count: Optional[int] = None,    # ← new
+        field_count: Optional[int] = None, 
     ) -> ScrapeResult:
         meta = BrightdataEngine._snap_meta.get(snapshot_id, {})
         root = tldextract.extract(url).domain or None
-
+        
+        
         # handle Bright-Data disguise URLs
         if root == "brightdata":
             root = meta.get("root_override", root)
@@ -252,6 +273,8 @@ class BrightdataEngine:
             snapshot_id_received_at=meta.get("snapshot_id_received_at"),
             snapshot_polled_at=meta.get("snapshot_polled_at", []),
             data_received_at=meta.get("data_received_at"),
+            row_count=row_count, 
+            field_count= field_count
         )
 
 

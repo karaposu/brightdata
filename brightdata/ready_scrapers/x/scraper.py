@@ -32,20 +32,33 @@ class XScraper(BrightdataBaseSpecializedScraper):
         super().__init__(_DATASET["profiles"], bearer_token, **kw)
 
     # ───────────────────────────── smart router ──────────────────────────
-    def collect_by_url(self, urls: Sequence[str]) -> Dict[str, str]:
-        buckets: Dict[str, List[str]] = defaultdict(list)
-        for u in urls:
-            if "/status/" in (urlparse(u).path or ""):
-                buckets["posts"].append(u)
-            else:
-                buckets["profiles"].append(u)
 
-        out: Dict[str, str] = {}
-        if buckets["posts"]:
-            out["posts"] = self.posts__collect_by_url(buckets["posts"])
-        if buckets["profiles"]:
-            out["profiles"] = self.profiles__collect_by_url(buckets["profiles"])
-        return out
+    def collect_by_url(self, url: str) -> str:
+        """
+        Trigger a Twitter scrape for exactly one URL and return its snapshot_id.
+        - URLs with "/status/" → posts endpoint
+        - everything else    → profiles endpoint
+        """
+        path = urlparse(url).path or ""
+        if "/status/" in path:
+            return self.posts__collect_by_url([url])
+        else:
+            return self.profiles__collect_by_url([url])
+        
+    # def collect_by_url(self, urls: Sequence[str]) -> Dict[str, str]:
+    #     buckets: Dict[str, List[str]] = defaultdict(list)
+    #     for u in urls:
+    #         if "/status/" in (urlparse(u).path or ""):
+    #             buckets["posts"].append(u)
+    #         else:
+    #             buckets["profiles"].append(u)
+
+    #     out: Dict[str, str] = {}
+    #     if buckets["posts"]:
+    #         out["posts"] = self.posts__collect_by_url(buckets["posts"])
+    #     if buckets["profiles"]:
+    #         out["profiles"] = self.profiles__collect_by_url(buckets["profiles"])
+    #     return out
 
     # ───────────────────────────── sync endpoints ───────────────────────
     def posts__collect_by_url(self, post_urls: Sequence[str]) -> str:
@@ -71,29 +84,49 @@ class XScraper(BrightdataBaseSpecializedScraper):
         return self.trigger(payload, dataset_id=_DATASET["profiles"])
 
     # ───────────────────────────── async variants ───────────────────────
-    async def collect_by_url_async(self, urls: Sequence[str]) -> Dict[str, str]:
-        posts, profiles = [], []
-        for u in urls:
-            if "/status/" in (urlparse(u).path or ""):
-                posts.append(u)
-            else:
-                profiles.append(u)
 
-        tasks: Dict[str, asyncio.Task[str]] = {}
-        if posts:
-            tasks["posts"] = asyncio.create_task(
-                self._trigger_async([{"url": u} for u in posts],
-                                    dataset_id=_DATASET["posts"])
-            )
-        if profiles:
-            tasks["profiles"] = asyncio.create_task(
-                self._trigger_async(
-                    [{"url": u, "max_number_of_posts": 100} for u in profiles],
-                    dataset_id=_DATASET["profiles"])
-            )
 
-        snaps = await asyncio.gather(*tasks.values())
-        return dict(zip(tasks.keys(), snaps))
+    async def collect_by_url_async(self, url: str) -> str:
+        """
+        Async version of collect_by_url: accept one Tweet or profile URL.
+        """
+        path = urlparse(url).path or ""
+        if "/status/" in path:
+            return await self.posts__collect_by_url_async([url])
+        else:
+            return await self.profiles__collect_by_url_async([url])
+        
+
+    async def collect_by_url_async(
+        self,
+        url: str,
+        *,
+        max_number_of_posts: Optional[int] = None
+    ) -> str:
+        """
+        Async single-URL collector.
+
+        - If it's a status/Tweet URL, we hit the posts endpoint
+        - Otherwise it's a user profile: you can optionally pass
+          max_number_of_posts to cap how many recent Tweets to fetch.
+        """
+        path = urlparse(url).path or ""
+
+        if "/status/" in path:
+            # single‐Tweet snapshot
+            return await self._trigger_async(
+                [{"url": url}],
+                dataset_id=_DATASET["posts"]
+            )
+        else:
+            # profile feed snapshot
+            payload = [{"url": url}]
+            if max_number_of_posts is not None:
+                payload[0]["max_number_of_posts"] = max_number_of_posts
+            return await self._trigger_async(
+                payload,
+                dataset_id=_DATASET["profiles"]
+            )
 
     async def posts__collect_by_url_async(self, post_urls: Sequence[str]) -> str:
         return await self._trigger_async(

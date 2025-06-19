@@ -65,38 +65,21 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
         super().__init__(_DATASET["posts"], bearer_token, **kw)
 
     
-    def collect_by_url(
-        self,
-        urls: Sequence[str],
-    ) -> Union[str, Dict[str, str]]:
+    def collect_by_url(self, url: str) -> str:
         """
-        Auto-dispatch raw Reddit URLs to the right endpoint:
-
-        • URLs containing "/comment/" → comments__collect_by_url  
-        • everything else         → posts__collect_by_url
-
-        Returns a single snapshot-id if all URLs went to one bucket,
-        or a dict {"posts": id1, "comments": id2} if both were used.
+        Trigger a Reddit scrape for exactly one URL.
+        Dispatches to comments or posts endpoint based on the path.
+        Returns the snapshot_id.
         """
-        post_urls = []
-        comment_urls = []
-        for u in urls:
-            path = urlparse(u).path
-            if "/comment/" in path:
-                comment_urls.append(u)
-            else:
-                post_urls.append(u)
+        path = urlparse(url).path
+        if "/comment/" in path:
+            # comments__collect_by_url expects a Sequence[str]
+            return self.comments__collect_by_url([url])
+        else:
+            return self.posts__collect_by_url([url])
 
-        results: Dict[str, str] = {}
-        if post_urls:
-            results["posts"] = self.posts__collect_by_url(post_urls)
-        if comment_urls:
-            results["comments"] = self.comments__collect_by_url(comment_urls)
 
-        # if only one bucket was used, return its snapshot-id directly
-        if len(results) == 1:
-            return next(iter(results.values()))
-        return results
+    
 
     # ****************************************************************** #
     # 1.  posts__collect_by_url
@@ -236,43 +219,17 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
     
 
 
-    async def collect_by_url_async(
-        self,
-        urls: Sequence[str],
-    ) -> Union[str, Dict[str, str]]:
+    async def collect_by_url_async(self, url: str) -> str:
         """
-        Async version of collect_by_url(): bucket URLs, trigger each
-        async, and return either a single snapshot_id or {bucket: snapshot_id}.
+        Async version of collect_by_url.
         """
-        # 1) bucket
-        post_urls, comment_urls = [], []
-        for u in urls:
-            path = urlparse(u).path
-            if "/comment/" in path:
-                comment_urls.append(u)
-            else:
-                post_urls.append(u)
-
-        # 2) schedule triggers
-        tasks: Dict[str, asyncio.Task[str]] = {}
-        if post_urls:
-            tasks["posts"] = asyncio.create_task(
-                self.posts__collect_by_url_async(post_urls)
-            )
-        if comment_urls:
-            tasks["comments"] = asyncio.create_task(
-                self.comments__collect_by_url_async(comment_urls)
-            )
-
-        # 3) gather
-        snaps = await asyncio.gather(*tasks.values())
-        result = dict(zip(tasks.keys(), snaps))
-
-        # 4) unwrap single
-        if len(result) == 1:
-            return next(iter(result.values()))
-        return result
-
+        path = urlparse(url).path
+        if "/comment/" in path:
+            return await self.comments__collect_by_url_async([url])
+        else:
+            return await self.posts__collect_by_url_async([url])
+    
+    
     async def posts__collect_by_url_async(
         self,
         post_urls: Sequence[str]

@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from brightdata.ready_scrapers.amazon import AmazonScraper
 from brightdata.utils import show_scrape_results   # unified pretty-printer
+
 # ─────────────────────────── credentials ───────────────────────────
 load_dotenv()
 if not os.getenv("BRIGHTDATA_TOKEN"):
@@ -25,22 +26,25 @@ if not os.getenv("BRIGHTDATA_TOKEN"):
 def main() -> None:
     scraper = AmazonScraper()      # token from env
 
-    # 1. SMART ROUTER  ▸  collect_by_url -----------------------------
+    # 1. SMART ROUTER  ▸  collect_by_url on each URL --------------------
     mixed_urls = [
-        "https://www.amazon.com/dp/B0CRMZHDG8",          # product
-        "https://www.amazon.com/s?k=headphones",         # search list
+        "https://www.amazon.com/dp/B0CRMZHDG8",  # product
+        "https://www.amazon.com/s?k=headphones", # search
     ]
-    sid_map = scraper.collect_by_url(mixed_urls)
-    for bucket, sid in sid_map.items():
+    for url in mixed_urls:
+        sid = scraper.collect_by_url(url)
+        if not sid:
+            print(f"⚠ no handler for {url!r}")
+            continue
         res = scraper.poll_until_ready(sid)
-        show_scrape_results(f"collect_by_url ▸ {bucket}", res)
+        show_scrape_results(f"collect_by_url → {url}", res)
 
-    # 2. PRODUCTS ▸ COLLECT BY URL -----------------------------------
-    urls = [
+    # 2. PRODUCTS ▸ COLLECT BY URL (batch) -----------------------------
+    prod_urls = [
         "https://www.amazon.com/dp/B0CRMZHDG8",
         "https://www.amazon.com/dp/B07PZF3QS3",
     ]
-    sid = scraper.products__collect_by_url(urls, zipcodes=["94107", ""])
+    sid = scraper.products__collect_by_url(prod_urls, zipcodes=["94107", ""])
     res = scraper.poll_until_ready(sid)
     show_scrape_results("products__collect_by_url", res)
 
@@ -62,7 +66,7 @@ def main() -> None:
     res = scraper.poll_until_ready(sid)
     show_scrape_results("products__discover_by_category_url", res)
 
-    # 5. SEARCH SERP ▸ COLLECT BY URL --------------------------------
+    # 5. SEARCH SERP ▸ COLLECT BY URL (batch) ------------------------
     search_urls = [
         "https://www.amazon.de/s?k=PS5",
         "https://www.amazon.es/s?k=car+cleaning+kit",

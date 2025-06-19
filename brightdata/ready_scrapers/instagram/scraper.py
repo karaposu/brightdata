@@ -35,40 +35,39 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
     def __init__(self, bearer_token: Optional[str] = None, **kw):
         super().__init__(_DATASET["profiles"], bearer_token, **kw)
 
-    # ─────────────────────── Sync “smart router” ────────────────────────
-    def collect_by_url(
-        self,
-        urls: Sequence[str],
-        *,
-        include_comments: bool = False,
-    ) -> Dict[str, str]:
-        profiles, posts, reels, comments = [], [], [], []
+    # ─────────────────────── Sync “smart router for instagram scraper.py” ────────────────────────
 
-        for u in urls:
-            p = urlparse(u).path.lower()
-            if "/reel/" in p:
-                (comments if include_comments else reels).append(u)
-            elif "/p/" in p:
-                (comments if include_comments else posts).append(u)
-            else:
-                profiles.append(u)
+    def _classify(self, url: str) -> str:
+        """
+        Returns one of: "profile", "post", or "reel".
+        """
+        path = urlparse(url).path.lower()
+        if "/reel/" in path:
+            return "reel"
+        if "/p/" in path:
+            return "post"
+        return "profile"
+    
+    
+    def collect_by_url(self, url: str) -> str:
+        """
+        Trigger an Instagram scrape for exactly one URL and return its snapshot-id.
 
-        result: Dict[str, str] = {}
-        if profiles:
-            result["profiles"] = self.profiles__collect_by_url(profiles)
-        if posts:
-            result["posts"] = self.posts__collect_by_url(posts)
-        if reels:
-            result["reels"] = self.reels__collect_by_url(reels)
-        if comments:
-            payload = [
-                {"url": u, "days_back": "", "load_all_replies": False, "comment_limit": ""}
-                for u in comments
-            ]
-            result["comments"] = self.comments__collect_by_url(payload)
+        :param url: a single Instagram URL
+        :returns: snapshot-id for that URL
+        """
+        path = urlparse(url).path.lower()
 
-        return result
+        if "/reel/" in path:
+            # wrap in a list for the underlying endpoint
+            return self.reels__collect_by_url([url])
+        elif "/p/" in path:
+            return self.posts__collect_by_url([url])
+        else:
+            return self.profiles__collect_by_url([url])
+        
 
+   
     # ───────────────────── Sync endpoints ──────────────────────────────
     def profiles__collect_by_url(self, urls: Sequence[str]) -> str:
         payload = [{"url": u} for u in urls]
@@ -84,11 +83,11 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
             dataset_id=_DATASET["posts"],
             extra_params={"type": "discover_new", "discover_by": "url"},
         )
-
+     
     def reels__collect_by_url(self, urls: Sequence[str]) -> str:
         payload = [{"url": u} for u in urls]
         return self.trigger(payload, dataset_id=_DATASET["reels"])
-
+    
     def reels__discover_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
         return self.trigger(
             list(queries),
@@ -102,7 +101,7 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
             dataset_id=_DATASET["reels"],
             extra_params={"type": "discover_new", "discover_by": "url_all_reels"},
         )
-
+    
     def comments__collect_by_url(self, queries: Sequence[Dict[str, Any]]) -> str:
         return self.trigger(
             list(queries),
@@ -110,55 +109,21 @@ class InstagramScraper(BrightdataBaseSpecializedScraper):
         )
 
     # ─────────────────── Async variants ────────────────────────────────
-    async def collect_by_url_async(
-        self,
-        urls: Sequence[str],
-        *,
-        include_comments: bool = False,
-    ) -> Dict[str, str]:
-        profiles, posts, reels, comments = [], [], [], []
-        for u in urls:
-            p = urlparse(u).path.lower()
-            if "/reel/" in p:
-                (comments if include_comments else reels).append(u)
-            elif "/p/" in p:
-                (comments if include_comments else posts).append(u)
-            else:
-                profiles.append(u)
+    async def collect_by_url_async(self, url: str) -> str:
+        """
+        Async version: accept one URL, classify it, and dispatch to the right async method.
+        """
+        path = urlparse(url).path.lower()
 
-        tasks: Dict[str, asyncio.Task[str]] = {}
-        if profiles:
-            tasks["profiles"] = asyncio.create_task(
-                self._trigger_async(
-                    [{"url": u} for u in profiles],
-                    dataset_id=_DATASET["profiles"],
-                )
-            )
-        if posts:
-            tasks["posts"] = asyncio.create_task(
-                self._trigger_async(
-                    [{"url": u} for u in posts],
-                    dataset_id=_DATASET["posts"],
-                )
-            )
-        if reels:
-            tasks["reels"] = asyncio.create_task(
-                self._trigger_async(
-                    [{"url": u} for u in reels],
-                    dataset_id=_DATASET["reels"],
-                )
-            )
-        if comments:
-            payload = [
-                {"url": u, "days_back": "", "load_all_replies": False, "comment_limit": ""}
-                for u in comments
-            ]
-            tasks["comments"] = asyncio.create_task(
-                self._trigger_async(payload, dataset_id=_DATASET["comments"])
-            )
+        if "/reel/" in path:
+            return await self.reels__collect_by_url_async([url])
+        elif "/p/" in path:
+            return await self.posts__collect_by_url_async([url])
+        else:
+            return await self.profiles__collect_by_url_async([url])
+    
 
-        snaps = await asyncio.gather(*tasks.values())
-        return dict(zip(tasks.keys(), snaps))
+    
 
     async def profiles__collect_by_url_async(self, urls: Sequence[str]) -> str:
         return await self._trigger_async(

@@ -46,18 +46,20 @@ class MouserScraper(BrightdataBaseSpecializedScraper):
     def __init__(self, bearer_token: Optional[str] = None, **kw):
         super().__init__(_DATASET_COLLECT_BY_URL, bearer_token, **kw)
 
-    # ──────────────────────── collect_by_url (sync) ──────────────────
-    def collect_by_url(self, urls: Sequence[str]) -> str:
+    def collect_by_url(self, url: str) -> str:
         """
-        Trigger product-detail scraping for one or many Mouser URLs.
-        Returns **snapshot_id**.
+        Trigger product-detail scraping for exactly one Mouser URL.
+        Returns the snapshot_id.
         """
-        payload = [{"url": u} for u in urls]
+        payload = [{"url": url}]
         return self.trigger(payload, dataset_id=_DATASET_COLLECT_BY_URL)
-
-    # ─────────────────────── collect_by_url (async) ──────────────────
-    async def collect_by_url_async(self, urls: Sequence[str]) -> str:
-        payload = [{"url": u} for u in urls]
+    
+    async def collect_by_url_async(self, url: str) -> str:
+        """
+        Async version: trigger product-detail scraping for exactly one Mouser URL.
+        Returns the snapshot_id.
+        """
+        payload = [{"url": url}]
         return await self._trigger_async(payload, dataset_id=_DATASET_COLLECT_BY_URL)
 
     # ─────────────────── discover_by_category (stub) ─────────────────

@@ -44,31 +44,79 @@ class TikTokScraper(BrightdataBaseSpecializedScraper):
     # ══════════════════════════════════════════════════════════════════════
     # Generic router
     # ══════════════════════════════════════════════════════════════════════
+
     def collect_by_url(
         self,
-        urls: Sequence[str],
+        url: str,
         *,
         include_comments: bool = False,
-    ) -> Dict[str, str]:
-        buckets: DefaultDict[str, List[str]] = defaultdict(list)
+    ) -> str:
+        """
+        Trigger a TikTok scrape for exactly one URL.
+        - /@username → profiles endpoint
+        - /video/…   → posts or comments endpoint
+        """
+        path = (urlparse(url).path or "").lower()
 
-        for u in urls:
-            path = (urlparse(u).path or "").lower()
-            if path.startswith("/@"):
-                buckets["profiles"].append(u)
-            elif "/video/" in path:
-                buckets["comments" if include_comments else "posts"].append(u)
+        if path.startswith("/@"):
+            # profile page
+            return self.profiles__collect_by_url([url])
+        elif "/video/" in path:
+            if include_comments:
+                return self.comments__collect_by_url([url])
             else:
-                raise ValueError(f"Unrecognised TikTok URL: {u}")
+                return self.posts__collect_by_url([url])
+        else:
+            raise ValueError(f"Unrecognised TikTok URL: {url!r}")
+        
+    
+    async def collect_by_url_async(
+        self,
+        url: str,
+        *,
+        include_comments: bool = False,
+    ) -> str:
+        """
+        Async version of collect_by_url.
+        """
+        path = (urlparse(url).path or "").lower()
 
-        out: Dict[str, str] = {}
-        if buckets["profiles"]:
-            out["profiles"] = self.profiles__collect_by_url(buckets["profiles"])
-        if buckets["posts"]:
-            out["posts"] = self.posts__collect_by_url(buckets["posts"])
-        if buckets["comments"]:
-            out["comments"] = self.comments__collect_by_url(buckets["comments"])
-        return out
+        if path.startswith("/@"):
+            return await self.profiles__collect_by_url_async([url])
+        elif "/video/" in path:
+            if include_comments:
+                return await self.comments__collect_by_url_async([url])
+            else:
+                return await self.posts__collect_by_url_async([url])
+        else:
+            raise ValueError(f"Unrecognised TikTok URL: {url!r}")
+        
+
+    # def collect_by_url(
+    #     self,
+    #     urls: Sequence[str],
+    #     *,
+    #     include_comments: bool = False,
+    # ) -> Dict[str, str]:
+    #     buckets: DefaultDict[str, List[str]] = defaultdict(list)
+
+    #     for u in urls:
+    #         path = (urlparse(u).path or "").lower()
+    #         if path.startswith("/@"):
+    #             buckets["profiles"].append(u)
+    #         elif "/video/" in path:
+    #             buckets["comments" if include_comments else "posts"].append(u)
+    #         else:
+    #             raise ValueError(f"Unrecognised TikTok URL: {u}")
+
+    #     out: Dict[str, str] = {}
+    #     if buckets["profiles"]:
+    #         out["profiles"] = self.profiles__collect_by_url(buckets["profiles"])
+    #     if buckets["posts"]:
+    #         out["posts"] = self.posts__collect_by_url(buckets["posts"])
+    #     if buckets["comments"]:
+    #         out["comments"] = self.comments__collect_by_url(buckets["comments"])
+    #     return out
 
     # ══════════════════════════════════════════════════════════════════════
     # 1.  PROFILES

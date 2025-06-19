@@ -24,13 +24,9 @@ def main() -> None:
     scraper = DigikeyScraper()          # token from env
     
     # 1. COLLECT BY URL ------------------------------------------------------
-    product_urls = [
-        "https://www.digikey.com/en/products/detail/excelsys-advanced-energy/"
-        "CX10S-BHDHCC-P-A-DK00000/13287513",
-        "https://www.digikey.com/en/products/detail/vishay-foil-resistors-"
-        "division-of-vishay-precision-group/Y1453100R000F9L/4228045",
-    ]
-    sid  = scraper.collect_by_url(product_urls)
+    product_url_sample =  "https://www.digikey.com/en/products/detail/excelsys-advanced-energy/CX10S-BHDHCC-P-A-DK00000/13287513"
+      
+    sid  = scraper.collect_by_url(product_url_sample)
     res  = scraper.poll_until_ready(sid)
     show_scrape_results("collect_by_url", res)
      

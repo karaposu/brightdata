@@ -35,25 +35,90 @@ class AmazonScraper(BrightdataBaseSpecializedScraper):
     def __init__(self, bearer_token: Optional[str] = None, **kw):
         super().__init__(self._DATASET["collect"], bearer_token, **kw)
 
-    # ══════════════════════════════════════════════════════════════
-    # 0. SMART ROUTER  ▸  collect_by_url()
-    # ══════════════════════════════════════════════════════════════
-    def collect_by_url(self, urls: Sequence[str], **kw) -> Dict[str, str]:
-        buckets = self.dispatch_by_regex(urls, self.PATTERNS)
-        unmatched = set(urls) - {u for lst in buckets.values() for u in lst}
-        if unmatched:
-            raise ValueError(f"Unrecognised Amazon URL(s): {unmatched}")
+    
+    def classify_url(self, url: str) -> str:
+        for kind, rx in self.PATTERNS.items():
+            if rx.search(url):
+                return kind
+        raise ValueError(f"Unrecognised Amazon URL: {url}")
+    
+    
+    def collect_by_url(
+        self,
+        url: str,
+        **kw: Any
+    ) -> str | None:
+        """
+        1) classify the single URL
+        2) dispatch to the appropriate handler (wrapping it in a one-element list)
+        3) return that handler’s snapshot_id, or None if the URL isn’t recognised
+        """
+        try:
+            kind = self.classify_url(url)
+        except ValueError:
+            # unrecognised URL → nothing to trigger
+            return None
 
-        out: Dict[str, str] = {}
-        if "product" in buckets:
-            out["product"] = self.products__collect_by_url(buckets["product"], **kw)
-        if "review" in buckets:
-            out["review"]  = self.reviews__collect_by_url(buckets["review"], **kw)      # stub
-        if "seller" in buckets:
-            out["seller"]  = self.sellers_info__collect_by_url(buckets["seller"], **kw) # stub
-        if "search" in buckets:
-            out["search"]  = self.products_search__collect_by_url(buckets["search"], **kw)
-        return out
+        if kind == "product":
+            return self.products__collect_by_url([url], **kw)
+        elif kind == "review":
+            return self.reviews__collect_by_url([url], **kw)
+        elif kind == "seller":
+            return self.sellers_info__collect_by_url([url], **kw)
+        elif kind == "search":
+            return self.products_search__collect_by_url([url], **kw)
+
+        # fallback, should never hit
+        return None
+    
+    async def collect_by_url_async(
+        self,
+        url: str,
+        **kw: Any
+    ) -> str | None:
+        """
+        Async version of collect_by_url:
+        1) classify the single URL
+        2) dispatch to the appropriate async handler
+        3) return that handler’s snapshot_id, or None if the URL isn’t recognised
+        """
+        try:
+            kind = self.classify_url(url)
+        except ValueError:
+            return None
+
+        if kind == "product":
+            return await self.products__collect_by_url_async([url], **kw)
+        elif kind == "review":
+            return await self.reviews__collect_by_url_async([url], **kw)
+        elif kind == "seller":
+            return await self.sellers_info__collect_by_url_async([url], **kw)
+        elif kind == "search":
+            return await self.products_search__collect_by_url_async([url], **kw)
+
+        # fallback, should never hit
+        return None
+
+ 
+
+    
+
+    # def collect_by_url(self, urls: Sequence[str], **kw) -> Dict[str, str]:
+    #     buckets = self.dispatch_by_regex(urls, self.PATTERNS)
+    #     unmatched = set(urls) - {u for lst in buckets.values() for u in lst}
+    #     if unmatched:
+    #         raise ValueError(f"Unrecognised Amazon URL(s): {unmatched}")
+         
+    #     out: Dict[str, str] = {}
+    #     if "product" in buckets:
+    #         out["product"] = self.products__collect_by_url(buckets["product"], **kw)
+    #     if "review" in buckets:
+    #         out["review"]  = self.reviews__collect_by_url(buckets["review"], **kw)      # stub
+    #     if "seller" in buckets:
+    #         out["seller"]  = self.sellers_info__collect_by_url(buckets["seller"], **kw) # stub
+    #     if "search" in buckets:
+    #         out["search"]  = self.products_search__collect_by_url(buckets["search"], **kw)
+    #     return out
 
     # ────────────────────── products__collect_by_url ─────────────────────
     def products__collect_by_url(

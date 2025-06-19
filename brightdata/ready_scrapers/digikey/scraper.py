@@ -35,9 +35,9 @@ class DigikeyScraper(BrightdataBaseSpecializedScraper):
 
     >>> from brightdata.ready_scrapers.digikey import DigikeyScraper
     >>> s   = DigikeyScraper()
-    >>> sid = s.collect_by_url([
+    >>> sid = s.collect_by_url(
     ...     "https://www.digikey.com/en/products/detail/STMicroelectronics/STM32F407VGT6/2747117"
-    ... ])
+    ... )
     >>> rows = s.poll_until_ready(sid).data
     """
 
@@ -46,15 +46,29 @@ class DigikeyScraper(BrightdataBaseSpecializedScraper):
     # ───────────────────────── constructor ───────────────────────────
     def __init__(self, bearer_token: Optional[str] = None, **kw):
         super().__init__(self._DATASET_ID, bearer_token, **kw)
-
+     
     # ─────────────────────── collect_by_url (sync) ───────────────────
-    def collect_by_url(self, urls: Sequence[str]) -> str:
-        payload = [{"url": u} for u in urls]
+    # def collect_by_url(self, urls: Sequence[str]) -> str:
+    #     payload = [{"url": u} for u in urls]
+    #     return self.trigger(payload, dataset_id=self._DATASET_ID)
+    
+    def collect_by_url(self, url: str) -> str:
+        """
+        Trigger a Bright Data job for exactly one URL and return its snapshot_id.
+        """
+        payload = [{"url": url}]
         return self.trigger(payload, dataset_id=self._DATASET_ID)
 
     # ───────────────────── collect_by_url (async) ────────────────────
-    async def collect_by_url_async(self, urls: Sequence[str]) -> str:
-        payload = [{"url": u} for u in urls]
+    # async def collect_by_url_async(self, urls: Sequence[str]) -> str:
+    #     payload = [{"url": u} for u in urls]
+    #     return await self._trigger_async(payload, dataset_id=self._DATASET_ID)
+
+    async def collect_by_url_async(self, url: str) -> str:
+        """
+        Trigger a Bright Data job for exactly one URL and return its snapshot_id.
+        """
+        payload = [{"url": url}]
         return await self._trigger_async(payload, dataset_id=self._DATASET_ID)
 
     # ───────────────────── discover_by_category (sync) ───────────────

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Any, Optional
 from datetime import datetime
+from typing import Dict
 from typing import Any, Optional, List
 
 @dataclass
@@ -24,5 +25,18 @@ class ScrapeResult:
     event_loop_id: Optional[int] = None                      # id(asyncio.get_running_loop())
     browser_warmed_at: datetime | None = None
     html_char_size: int | None = None
+    row_count: Optional[int] = None
+    field_count: Optional[int] = None
+
+
+
+@dataclass
+class SnapshotBundle:
+    """
+    The result of triggering one (or more) endpoint(s) for a single URL.
+    """
+    url: str
+    # maps endpoint name (e.g. "posts", "comments", "profiles") → snapshot_id
+    snapshot_ids: Dict[str, str] = field(default_factory=dict)
     
     
