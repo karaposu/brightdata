@@ -68,7 +68,7 @@ def trigger_scrape_url(
     if not hasattr(scraper, "collect_by_url"):
         raise ValueError(f"{ScraperCls.__name__} lacks collect_by_url()")
 
-    return scraper.collect_by_url([url])
+    return scraper.collect_by_url(url)
 
 
 # ─────────────────────────────────────────────────────────────── single URL (sync)
