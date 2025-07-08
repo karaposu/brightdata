@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 class BrightdataEngine:
     """Process-wide engine—**no** shared session, all sessions are per-call."""
-
+    
     # timing & trace metadata (still shared for introspection)
     _snap_meta: Dict[str, Dict[str, Any]] = {}
     _trace_lock = asyncio.Lock()
@@ -54,6 +54,8 @@ class BrightdataEngine:
         async with BrightdataEngine._trace_lock:
             BrightdataEngine._ctr += 1
             return f"bd-{int(time.time()*1e6):x}-{BrightdataEngine._ctr}"
+        
+
 
     async def trigger(
         self,
@@ -65,12 +67,16 @@ class BrightdataEngine:
     ) -> Optional[str]:
         """
         POST to /trigger (always async mode) → returns snapshot_id or None.
+
+        If the HTTPS handshake fails because the local machine cannot verify
+        Bright Data’s certificate, raise RuntimeError with a helpful hint.
+        All other network/HTTP problems still return None (legacy behaviour).
         """
         params = {
-            "dataset_id":      dataset_id,
-            "include_errors":  str(include_errors).lower(),
-            "format":          "json",
-            "sync_mode":       "async",
+            "dataset_id":     dataset_id,
+            "include_errors": str(include_errors).lower(),
+            "format":         "json",
+            "sync_mode":      "async",
             **(extra_params or {}),
         }
 
@@ -83,7 +89,7 @@ class BrightdataEngine:
             "Content-Type":  "application/json",
         }
 
-        # **new session per call**
+        # ─────────────── one brand-new session per call ────────────────
         async with aiohttp.ClientSession(
             timeout=self._timeout,
             headers=headers,
@@ -93,27 +99,105 @@ class BrightdataEngine:
                 async with sess.post(url, params=params, json=payload) as resp:
                     resp.raise_for_status()
                     data = await resp.json()
+
+            # ── special case: SSL root CA missing on the host machine ──
+            except aiohttp.ClientConnectorCertificateError as e:
+                raise RuntimeError(
+                    "SSL certificate verification failed while contacting "
+                    "api.brightdata.com.  On macOS this usually means the Python "
+                    "installation is missing the system root certificates.  "
+                    "Run the ‘Install Certificates.command’ that ships with "
+                    "the official python.org installer, or try:\n"
+                    "    python -m pip install --upgrade certifi"
+                ) from e
+            except ssl.SSLCertVerificationError as e:        # defence-in-depth
+                raise RuntimeError(
+                    f"SSL certificate verification failed: {e}"
+                ) from e
+
+            # ── any other network / HTTP error: legacy behaviour ─────────
             except Exception as e:
                 log.debug("trigger %s failed: %s", dataset_id, e)
                 return None
 
+        # ------------------- happy path: got a snapshot_id ---------------
         sid = data.get("snapshot_id")
         if not sid:
             log.debug("trigger response w/o snapshot_id: %s", data)
             return None
 
-        # record metadata
-        first_url      = payload[0].get("url", "") if payload else ""
-        root_override  = tldextract.extract(first_url).domain or None
+        # record timing / trace metadata
+        first_url     = payload[0].get("url", "") if payload else ""
+        root_override = tldextract.extract(first_url).domain or None
         BrightdataEngine._snap_meta[sid] = {
-            "trace_id":                 trace_id,
-            "request_sent_at":          sent_at,
-            "snapshot_id_received_at":  datetime.utcnow(),
-            "snapshot_polled_at":       [],
-            "data_received_at":         None,
-            "root_override":            root_override,
+            "trace_id":                trace_id,
+            "request_sent_at":         sent_at,
+            "snapshot_id_received_at": datetime.utcnow(),
+            "snapshot_polled_at":      [],
+            "data_received_at":        None,
+            "root_override":           root_override,
         }
         return sid
+
+    # async def trigger(
+    #     self,
+    #     payload: List[dict[str, Any]],
+    #     *,
+    #     dataset_id: str,
+    #     include_errors: bool = True,
+    #     extra_params: Optional[Dict[str, Any]] = None,
+    # ) -> Optional[str]:
+    #     """
+    #     POST to /trigger (always async mode) → returns snapshot_id or None.
+    #     """
+    #     params = {
+    #         "dataset_id":      dataset_id,
+    #         "include_errors":  str(include_errors).lower(),
+    #         "format":          "json",
+    #         "sync_mode":       "async",
+    #         **(extra_params or {}),
+    #     }
+
+    #     sent_at  = datetime.utcnow()
+    #     trace_id = await self._next_trace_id()
+
+    #     url = "https://api.brightdata.com/datasets/v3/trigger"
+    #     headers = {
+    #         "Authorization": f"Bearer {self._token}",
+    #         "Content-Type":  "application/json",
+    #     }
+
+    #     # **new session per call**
+    #     async with aiohttp.ClientSession(
+    #         timeout=self._timeout,
+    #         headers=headers,
+    #         trust_env=True,
+    #     ) as sess:
+    #         try:
+    #             async with sess.post(url, params=params, json=payload) as resp:
+    #                 resp.raise_for_status()
+    #                 data = await resp.json()
+    #         except Exception as e:
+    #             log.debug("trigger %s failed: %s", dataset_id, e)
+    #             return None
+
+    #     sid = data.get("snapshot_id")
+    #     if not sid:
+    #         log.debug("trigger response w/o snapshot_id: %s", data)
+    #         return None
+
+    #     # record metadata
+    #     first_url      = payload[0].get("url", "") if payload else ""
+    #     root_override  = tldextract.extract(first_url).domain or None
+    #     BrightdataEngine._snap_meta[sid] = {
+    #         "trace_id":                 trace_id,
+    #         "request_sent_at":          sent_at,
+    #         "snapshot_id_received_at":  datetime.utcnow(),
+    #         "snapshot_polled_at":       [],
+    #         "data_received_at":         None,
+    #         "root_override":            root_override,
+    #     }
+    #     return sid
 
     async def get_status(self, snapshot_id: str) -> str:
         """
@@ -141,22 +225,35 @@ class BrightdataEngine:
                                   .append(datetime.utcnow())
         return status
     
+
     async def fetch_result(self, snapshot_id: str) -> ScrapeResult:
         """
-        One GET to /snapshot/{snapshot_id} → returns a ScrapeResult.
+        GET /snapshot/{snapshot_id} and return a ScrapeResult.
+
+        If the body still says {"status": "building"}, the request is retried
+        every 2 s until real data arrives (or an HTTP/error response occurs).
         """
-        url = f"https://api.brightdata.com/datasets/v3/snapshot/{snapshot_id}?format=json"
+        url     = f"https://api.brightdata.com/datasets/v3/snapshot/{snapshot_id}?format=json"
         headers = {"Authorization": f"Bearer {self._token}"}
 
-        async with aiohttp.ClientSession(
-            timeout=self._timeout,
-            headers=headers,
-            trust_env=True,
-        ) as sess:
+        # ------------------------ download loop ------------------------
+        while True:
             try:
-                async with sess.get(url) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json()
+                async with aiohttp.ClientSession(
+                    timeout=self._timeout,
+                    headers=headers,
+                    trust_env=True,
+                ) as sess:
+                    async with sess.get(url) as resp:
+                        resp.raise_for_status()
+                        data = await resp.json()
+
+                # Bright Data sometimes returns a placeholder:
+                #   {"status":"building","message":"Snapshot is building …"}
+                if isinstance(data, dict) and data.get("status") == "building":
+                    await asyncio.sleep(2)        # short pause, then retry
+                    continue
+
                 ok, status, error = True, "ready", None
                 BrightdataEngine._snap_meta[snapshot_id]["data_received_at"] = datetime.utcnow()
             except aiohttp.ClientResponseError as e:
@@ -164,39 +261,96 @@ class BrightdataEngine:
             except Exception as e:
                 ok, status, error, data = False, "error", "fetch_error", None
                 log.debug("fetch_result %s error: %s", snapshot_id, e)
+            break   # leave retry-loop (success or hard error)
 
-        cost: Optional[float] = None
-        row_count: Optional[int] = None
-        field_count: Optional[int] = None
-        
-        
+        # --------------------- derive counts & cost --------------------
+        row_count   : Optional[int]   = None
+        field_count : Optional[int]   = None
+        cost        : Optional[float] = None
+
         if isinstance(data, list):
-            row_count = len(data)
-            cost      = row_count * self.COST_PER_RECORD
-            if data and isinstance(data[0], dict):
-                    field_count = len(data[0])
-
+            row_count   = len(data)
+            field_count = len(data[0]) if data and isinstance(data[0], dict) else 0
         elif isinstance(data, dict):
-            row_count = 1
-            cost      = 1 * self.COST_PER_RECORD
+            row_count   = 1
             field_count = len(data)
-        else:
-            row_count = 0
-            cost      = 0.0
+        else:                       # unexpected data shape
+            row_count   = 0
             field_count = 0
 
-        scrape_res =self._make_result(
-            success=ok,
-            status=status,
-            snapshot_id=snapshot_id,
-            url=url,
-            data=data,
-            error=error,
-            cost=cost,
-            row_count=row_count,
-            field_count=field_count,
+        if row_count is not None:
+            cost = row_count * self.COST_PER_RECORD
+
+        # -------------------------- package ---------------------------
+        scrape_res = self._make_result(
+            success       = ok,
+            status        = status,
+            snapshot_id   = snapshot_id,
+            url           = url,
+            data          = data,
+            error         = error,
+            cost          = cost,
+            row_count     = row_count,
+            field_count   = field_count,
         )
         return scrape_res
+    
+    # async def fetch_result(self, snapshot_id: str) -> ScrapeResult:
+    #     """
+    #     One GET to /snapshot/{snapshot_id} → returns a ScrapeResult.
+    #     """
+    #     url = f"https://api.brightdata.com/datasets/v3/snapshot/{snapshot_id}?format=json"
+    #     headers = {"Authorization": f"Bearer {self._token}"}
+
+    #     async with aiohttp.ClientSession(
+    #         timeout=self._timeout,
+    #         headers=headers,
+    #         trust_env=True,
+    #     ) as sess:
+    #         try:
+    #             async with sess.get(url) as resp:
+    #                 resp.raise_for_status()
+    #                 data = await resp.json()
+    #             ok, status, error = True, "ready", None
+    #             BrightdataEngine._snap_meta[snapshot_id]["data_received_at"] = datetime.utcnow()
+    #         except aiohttp.ClientResponseError as e:
+    #             ok, status, error, data = False, "error", f"http_{e.status}", None
+    #         except Exception as e:
+    #             ok, status, error, data = False, "error", "fetch_error", None
+    #             log.debug("fetch_result %s error: %s", snapshot_id, e)
+
+    #     cost: Optional[float] = None
+    #     row_count: Optional[int] = None
+    #     field_count: Optional[int] = None
+        
+        
+    #     if isinstance(data, list):
+    #         row_count = len(data)
+    #         cost      = row_count * self.COST_PER_RECORD
+    #         if data and isinstance(data[0], dict):
+    #                 field_count = len(data[0])
+
+    #     elif isinstance(data, dict):
+    #         row_count = 1
+    #         cost      = 1 * self.COST_PER_RECORD
+    #         field_count = len(data)
+    #     else:
+    #         row_count = 0
+    #         cost      = 0.0
+    #         field_count = 0
+
+    #     scrape_res =self._make_result(
+    #         success=ok,
+    #         status=status,
+    #         snapshot_id=snapshot_id,
+    #         url=url,
+    #         data=data,
+    #         error=error,
+    #         cost=cost,
+    #         row_count=row_count,
+    #         field_count=field_count,
+    #     )
+    #     return scrape_res
     
 
 
