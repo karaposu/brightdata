@@ -38,7 +38,8 @@ _DATASET = {
     "posts":    "gd_lvz8ah06191smkebj4",
     "comments": "gd_lvzdpsdlw09j6t702",
 }
-
+import re
+_RX_SUBREDDIT_ROOT = re.compile(r"^/r/[^/]+/?$", re.I)
 
 @register("reddit")  # registry matches “reddit” in the domain
 class RedditScraper(BrightdataBaseSpecializedScraper):
@@ -72,6 +73,12 @@ class RedditScraper(BrightdataBaseSpecializedScraper):
         Returns the snapshot_id.
         """
         path = urlparse(url).path
+        
+        if _RX_SUBREDDIT_ROOT.match(path):
+          # Option A – if it is not a post and subreddit link, skip it 
+          return None
+
+
         if "/comment/" in path:
             # comments__collect_by_url expects a Sequence[str]
             return self.comments__collect_by_url([url])

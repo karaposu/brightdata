@@ -28,6 +28,7 @@ from brightdata.registry import register
 import asyncio
 
 # Bright-Data dataset id (taken from their API docs)
+MIN_POLL_TIMEOUT: int = 3600   # seconds  (6 minutes)
 _DATASET_COLLECT_BY_URL = "gd_lfjty8942ogxzhmp8t"
 
 
