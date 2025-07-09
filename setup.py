@@ -5,7 +5,7 @@ import os
 
 setup(
     name='brightdata',  # Package name
-    version='0.3.2.1',  # Version of your package
+    version='0.3.2.2',  # Version of your package
     author='Enes Kuzucu',  # Your name
     
     description='Easy to use comprehensive wrapper for brightdata *scrapers, web unlocker, browserapi) APIs with async support',  # Short description
