@@ -61,10 +61,15 @@ class BrowserapiEngine:
         password: str | None = None,
         host: str = os.getenv("BROWSERAPI_HOST", "brd.superproxy.io"),
         port: int = int(os.getenv("BROWSERAPI_PORT", 9222)),
+        retry: int = 1                         
+    
     ) -> "IsolatedPlaywrightSession":
         """
         Open a new playwright context + CDP connection.
         """
+
+        DEFAULT_CONNECT_TIMEOUT_MS = 30_000      
+
         username = username or os.getenv("BRIGHTDATA_BROWSERAPI_USERNAME")
         password = password or os.getenv("BRIGHTDATA_BROWSERAPI_PASSWORD")
         if not (username and password):
@@ -72,8 +77,39 @@ class BrowserapiEngine:
 
         pw_ctx = await async_playwright().start()
         ws_url = f"wss://{username}:{password}@{host}:{port}/"
-        browser = await pw_ctx.chromium.connect_over_cdp(ws_url)
+
+
+        attempt = 0
+        while True:
+            try:
+                browser = await pw_ctx.chromium.connect_over_cdp(
+                    ws_url
+                )
+                break                                # success
+            except PWTimeoutError as err:
+                attempt += 1                         # count this failure first
+                if attempt > retry:                  # retries exhausted
+                    raise ConnectionError(
+                        f"CDP handshake timed out after "
+                        f"{DEFAULT_CONNECT_TIMEOUT_MS/1000:.0f}s "
+                        f"(attempt {attempt}/{retry+1})"
+                    ) from err
+                    # logger.error(
+                    # "CDP handshake failed (browserapi_engine.py line 98), no error is raised",
+                    # attempt, retry, err
+                    # )
+                
+                logger.warning(
+                    "CDP handshake retry %d/%d after timeout (%s)",
+                    attempt, retry, err
+                )
+                await asyncio.sleep(5.0)             # small back-off
+
         return cls(pw_ctx, browser)
+
+
+
+
 
     async def new_page(
         self,

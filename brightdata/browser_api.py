@@ -27,6 +27,7 @@ logging.getLogger("tldextract").setLevel(logging.WARNING)
 import tldextract
 from brightdata.browserapi_engine import BrowserapiEngine
 
+
 from brightdata.models import ScrapeResult
 
 logger = logging.getLogger(__name__)
@@ -97,8 +98,14 @@ class BrowserAPI:
 
     async def _ensure_pool(self) -> None:
         while len(self._sessions) < self.pool_size:
-            sess = await BrowserapiEngine.create()
-            self._sessions.append(sess)
+            try:
+                sess = await BrowserapiEngine.create()     # may raise
+            except ConnectionError as e:
+                logger.error("Browser-API pool(might be due to cdp connection failed): %s", e)
+                break                     # leave the session list as-is (maybe empty)
+            else:
+                self._sessions.append(sess)
+
 
     async def _fetch_from_pool(
         self,
