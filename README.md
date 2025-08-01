@@ -282,6 +282,12 @@ Use one of the helpers to fetch the final data:
 
 ---
 
+## 3. ToDos
+
+- make web unlocker return a scrape result object 
+- add web unlocker fallback mechanism for scrape url
+
+
 
 ---
 
