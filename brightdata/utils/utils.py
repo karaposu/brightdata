@@ -64,6 +64,16 @@ def _make_result_browserapi(                       # ← distinct name
 
 
 
+import json
+def print_scrape_result(result):
+      for key, value in result.__dict__.items():
+          if key == 'data' and value:
+              print(f"{key}: {value[:200]}...")
+          elif isinstance(value, (list, dict)):
+              print(f"{key}: {json.dumps(value, indent=2)}")
+          else:
+              print(f"{key}: {value}")
+
 
 def show_a_scrape_result_mini(label: str, res: ScrapeResult):
     ts = datetime.utcnow().isoformat(timespec="seconds") + "Z"

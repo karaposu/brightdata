@@ -18,13 +18,13 @@ class BrightdataWebUnlocker:
     COST_PER_THOUSAND = 1.50  # USD per 1000 requests
     COST_PER_REQUEST = COST_PER_THOUSAND / 1000.0
 
-    def __init__(self, BRIGHTDATA_WEBUNCLOKCER_BEARER=None, ZONE_STRING=None):
+    def __init__(self, BRIGHTDATA_WEBUNLOCKER_BEARER=None, ZONE_STRING=None):
         load_dotenv()
-        self.bearer = BRIGHTDATA_WEBUNCLOKCER_BEARER or os.getenv('BRIGHTDATA_WEBUNCLOKCER_BEARER')
-        self.zone   = ZONE_STRING                    or os.getenv('BRIGHTDATA_WEBUNCLOKCER_APP_ZONE_STRING')
+        self.bearer = BRIGHTDATA_WEBUNLOCKER_BEARER or os.getenv('BRIGHTDATA_WEBUNLOCKER_BEARER')
+        self.zone   = ZONE_STRING                    or os.getenv('BRIGHTDATA_WEBUNLOCKER_APP_ZONE_STRING')
         self.format = "raw"
         if not (self.bearer and self.zone):
-            raise ValueError("Set BRIGHTDATA_WEBUNCLOKCER_BEARER and ZONE_STRING")
+            raise ValueError("Set BRIGHTDATA_WEBUNLOCKER_BEARER and ZONE_STRING")
         
         self._endpoint = "https://api.brightdata.com/request"
 
@@ -37,6 +37,7 @@ class BrightdataWebUnlocker:
         data: str | None = None,
         error: str | None = None
     ) -> ScrapeResult:
+        from datetime import datetime
         ext = tldextract.extract(url)
         return ScrapeResult(
             success=success,
@@ -45,17 +46,18 @@ class BrightdataWebUnlocker:
             data=data,
             error=error,
             snapshot_id=None,
-            # cost=None,
             cost=self.COST_PER_REQUEST if success else 0.0,
-            fallback_used=False,
-            root_domain=ext.domain or None
+            fallback_used=True,  # Web Unlocker is used as a fallback
+            root_domain=ext.domain or None,
+            request_sent_at=datetime.utcnow() if success else None,
+            data_received_at=datetime.utcnow() if success else None,
+            html_char_size=len(data) if data else None
         )
 
     def get_source(self, target_weblink: str) -> ScrapeResult:
         """
         Returns ScrapeResult with .data holding the unlocked HTML.
         """
-        url = "https://api.brightdata.com/request"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.bearer}"
@@ -63,7 +65,7 @@ class BrightdataWebUnlocker:
         payload = {"zone": self.zone, "url": target_weblink, "format": self.format}
 
         try:
-            resp = requests.post(url, headers=headers, json=payload)
+            resp = requests.post(self._endpoint, headers=headers, json=payload)
             resp.raise_for_status()
             return self._make_result(
                 url=target_weblink,
