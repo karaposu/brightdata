@@ -14,6 +14,7 @@ from Amazon, Instagram, LinkedIn, Tiktok, Youtube, X, Reddit and more in a produ
 
 Note:  This is an unofficial SDK
 
+Supported services: Web Scraper API,  Web Unlocker,  BrowserAPI
 
 
 ---
