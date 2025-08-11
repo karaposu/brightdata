@@ -8,7 +8,7 @@ setup(
     version='0.4.0',  # Version of your package
     author='Enes Kuzucu',  # Your name
     
-    description='Easy to use comprehensive wrapper for brightdata *scrapers, web unlocker, browserapi) APIs with async support',  # Short description
+    description='Easy to use comprehensive wrapper for brightdata *scrapers, web unlocker, browserapi APIs with async support',  # Short description
     long_description=open('README.md').read(),  # Long description from a README file
     long_description_content_type='text/markdown',  # Type of the long description
     

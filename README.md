@@ -7,12 +7,12 @@
 
 ---
 
-``pip install brightdata``  →  one import away from grabbing JSON rows
-from Amazon, Instagram, LinkedIn, Tiktok, Youtube, X, Reddit and more in a production-grade way.
+``pip install brightdata``  →  one import away from grabbing JSON//HTML data 
+from Amazon, Instagram, LinkedIn, Tiktok, Youtube, X, Reddit and whole Web in a production-grade way.
 
-(Scroll down in https://brightdata.com/products/web-scraper to see all specialized scrapers )
+Abstract away scraping entirely and enjoy your data.
 
-Note:  This is an unofficial SDK
+Note:  This is an unofficial SDK. Please visit https://brightdata.com/products/ for official information. 
 
 ## Supported Services
 
