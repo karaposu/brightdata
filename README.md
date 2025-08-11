@@ -14,6 +14,8 @@ Abstract away scraping entirely and enjoy your data.
 
 Note:  This is an unofficial SDK. Please visit https://brightdata.com/products/ for official information. 
 
+[![PyPI Downloads](https://static.pepy.tech/badge/brightdata)](https://pepy.tech/projects/brightdata)
+
 ## Supported Services
 
 ```
