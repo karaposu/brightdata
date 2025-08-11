@@ -8,7 +8,7 @@
 #   ▸ we block with scraper.poll_until_ready()
 #
 # Run with:
-#     python -m brightdata.scrapers.linkedin.tests
+#   python -m brightdata.webscraper_api.scrapers.linkedin.tests
 # ─────────────────────────────────────────────────────────────
 import os
 import sys

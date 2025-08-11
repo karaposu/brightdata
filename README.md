@@ -14,7 +14,25 @@ from Amazon, Instagram, LinkedIn, Tiktok, Youtube, X, Reddit and more in a produ
 
 Note:  This is an unofficial SDK
 
-Supported services: Web Scraper API,  Web Unlocker,  BrowserAPI
+## Supported Services
+
+```
+┌─────────────────────┬────────────────────────────────────────────────────────┐
+│ Service             │ Description                                            │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Web Scraper API     │ Ready-made scrapers for popular websites               │
+│                     │ (Amazon, LinkedIn, Instagram, TikTok, Reddit, etc.)    │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Web Unlocker        │ Proxy service to bypass anti-bot protection            │
+│                     │ Returns raw HTML from any URL                          │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Browser API         │ Headless browser automation with Playwright            │
+│                     │ Full JavaScript rendering and interaction support      │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ SERP (Soon)         │ Get SERP results from Google, Bing, Yandex            │
+│                     │ and many more search engines                           │
+└─────────────────────┴────────────────────────────────────────────────────────┘
+```
 
 
 ---

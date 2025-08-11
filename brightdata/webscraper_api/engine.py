@@ -19,6 +19,7 @@ Bright Data’s *dataset* API—**without** a long-lived session.
 import asyncio
 import logging
 import os
+import ssl
 import time
 import urllib.parse
 from datetime import datetime

@@ -7,7 +7,7 @@
 #   ▸ blocks with scraper.poll_until_ready()
 #
 # Run with:
-#   python -m brightdata.scrapers.mouser.tests
+#   python -m brightdata.webscraper_api.scrapers.mouser.tests
 # ─────────────────────────────────────────────────────────────
 import os
 import sys

@@ -5,7 +5,7 @@
 # Smoke-test for brightdata.scrapers.digikey.DigikeyScraper
 #
 # Run with:
-#     python -m brightdata.scrapers.digikey.tests
+#   python -m brightdata.webscraper_api.scrapers.digikey.tests
 # ─────────────────────────────────────────────────────────────
 import os
 import sys

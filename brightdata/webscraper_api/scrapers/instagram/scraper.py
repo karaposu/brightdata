@@ -6,6 +6,8 @@ brightdata.scrapers.instagram.scraper
 High-level client for Bright Data’s Instagram endpoints.
 All sync methods call `self.trigger(…)` and return a snapshot-ID.
 Async methods use `self._trigger_async(…)`.
+
+# python -m brightdata.webscraper_api.scrapers.instagram.scraper
 """
 
 from __future__ import annotations

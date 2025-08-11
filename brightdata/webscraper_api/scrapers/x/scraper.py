@@ -6,6 +6,8 @@ brightdata.scrapers.x.scraper
 High-level wrapper around Bright Data’s X / Twitter datasets.
 Every sync method calls `self.trigger()` (engine-backed) and returns a
 snapshot-ID. Async variants use `self._trigger_async()`.
+
+# python -m brightdata.webscraper_api.scrapers.x.scraper
 """
 
 from __future__ import annotations

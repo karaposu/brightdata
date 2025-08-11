@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-brightdata.scrapers.amazon.scraper
+brightdata.webscraper_api.scrapers.amazon.scraper
 ----------------------------------------
 
-Wrapper for Bright Data’s Amazon datasets.
+Wrapper for Bright Data's Amazon datasets.
+
+# python -m brightdata.webscraper_api.scrapers.amazon.scraper
 """
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence

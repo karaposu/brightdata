@@ -1,4 +1,4 @@
- # run with  python -m brightdata.scrapers.linkedin.small_test
+# run with  python -m brightdata.webscraper_api.scrapers.linkedin.small_test
 
 
 from brightdata.webscraper_api.scrapers.linkedin import LinkedInScraper

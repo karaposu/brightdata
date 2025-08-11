@@ -18,6 +18,8 @@ immediately.  Block with::
 or in an `async` context::
 
     res = await scraper.poll_until_ready_async(snapshot_id)
+
+# python -m brightdata.webscraper_api.scrapers.digikey.scraper
 """
 from __future__ import annotations
 

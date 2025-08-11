@@ -2,10 +2,12 @@
 #!/usr/bin/env python3
 
 """
-brightdata.scrapers.reddit.scraper
+brightdata.webscraper_api.scrapers.reddit.scraper
 ========================================
 
-Unofficial wrapper around Bright Data’s **Reddit** datasets.
+Unofficial wrapper around Bright Data's **Reddit** datasets.
+
+# python -m brightdata.webscraper_api.scrapers.reddit.scraper
 
 Implemented endpoints
 ---------------------

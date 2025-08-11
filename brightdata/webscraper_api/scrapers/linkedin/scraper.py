@@ -3,6 +3,8 @@
 brightdata.scrapers.linkedin.scraper
 ------------------------------------------
 Wrapper around Bright Data’s three LinkedIn datasets.
+
+# python -m brightdata.webscraper_api.scrapers.linkedin.scraper
 """
 
 from __future__ import annotations

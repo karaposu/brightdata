@@ -7,7 +7,7 @@
 #   ▸ Blocks with scraper.poll_until_ready()
 #
 # Run with:
-#   python -m brightdata.scrapers.reddit.tests
+#   python -m brightdata.webscraper_api.scrapers.reddit.tests
 # ─────────────────────────────────────────────────────────────
 import os
 import sys

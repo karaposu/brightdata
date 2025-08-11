@@ -7,7 +7,7 @@
 # we block with scraper.poll_until_ready().
 #
 # Run with:
-#     python -m brightdata.scrapers.instagram.tests
+#   python -m brightdata.webscraper_api.scrapers.instagram.tests
 # ─────────────────────────────────────────────────────────────
 import os
 import sys

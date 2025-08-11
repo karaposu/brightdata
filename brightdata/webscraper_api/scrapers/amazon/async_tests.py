@@ -7,7 +7,7 @@ import os
 import sys
 
 # run with:
-#   python -m brightdata.scrapers.amazon.async_tests
+#   python -m brightdata.webscraper_api.scrapers.amazon.async_tests
 # ─────────────────────────────────────────────────────────────
 load_dotenv()
 TOKEN = os.getenv("BRIGHTDATA_TOKEN")

@@ -6,6 +6,8 @@ Unified helper for Bright Data’s TikTok datasets (profiles, posts, fast-API
 variants, comments).  Every call runs with ``sync_mode=async`` and therefore
 returns a **snapshot-id** right away; use the *poll* helpers provided by the
 base class to obtain the rows.
+
+# python -m brightdata.webscraper_api.scrapers.tiktok.scraper
 """
 
 from __future__ import annotations

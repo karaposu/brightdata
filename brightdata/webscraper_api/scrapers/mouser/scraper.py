@@ -18,6 +18,8 @@ All calls run in **async mode** (`sync_mode=async`) and therefore return
 or, in an async context::
 
     result = await scraper.poll_until_ready_async(snapshot_id)
+
+# python -m brightdata.webscraper_api.scrapers.mouser.scraper
 """
 from __future__ import annotations
 

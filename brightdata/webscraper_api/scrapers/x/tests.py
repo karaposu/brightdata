@@ -8,7 +8,7 @@
 #     brightdata.utils.show_scrape_results
 #
 # Run with:
-#   python -m brightdata.scrapers.x.tests
+#   python -m brightdata.webscraper_api.scrapers.x.tests
 # ─────────────────────────────────────────────────────────────
 import os
 import sys
