@@ -14,8 +14,8 @@ from pathlib import Path
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from brightdata.browser_api import BrowserAPI
-from brightdata.browser_pool import BrowserPool
+from brightdata.browserapi import BrowserAPI
+from brightdata.browserapi import BrowserPool
 from brightdata.models import ScrapeResult
 from dotenv import load_dotenv
 
@@ -272,7 +272,7 @@ async def test_07_browser_pool_class():
     print("\n[Test 07] BrowserPool class test...")
     
     try:
-        from brightdata.browser_pool import BrowserPool
+        from brightdata.browserapi import BrowserPool
         
         pool = BrowserPool(size=4)
         

@@ -14,48 +14,48 @@ from pathlib import Path
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from brightdata.browser_api import BrowserAPI
+from brightdata.browserapi import BrowserAPI
 from brightdata.models import ScrapeResult
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def test_01_sync_fetch_noop():
-    """Test 01: Basic synchronous fetch with noop strategy"""
-    print("\n[Test 01] Sync fetch with noop strategy...")
+async def test_01_demo_style_noop():
+    """Test 01: Test noop strategy as shown in browser_api.py main()"""
+    print("\n[Test 01] Demo-style noop strategy test...")
     
-    api = BrowserAPI(strategy="noop")
-    test_url = "https://example.com"
+    # Use same config as main() demo
+    api = BrowserAPI(
+        strategy="noop",
+        enable_wait_for_selector=True,
+        block_patterns=["**/*.png", "**/*.css"]
+    )
     
-    print(f"  Fetching {test_url}...")
+    urls = ["https://example.com", "https://openai.com"]
     
     try:
-        result = api.fetch(test_url)
-        
-        # Check result type
-        if not isinstance(result, ScrapeResult):
-            print("✗ Result is not a ScrapeResult object")
-            return False
-        
-        print(f"✓ Got ScrapeResult: success={result.success}, status={result.status}")
-        
-        # Validate content
-        if result.success and result.data:
-            if "Example Domain" in result.data:
-                print("✓ Content validation passed")
-                print(f"  - HTML size: {len(result.data)} chars")
-                print(f"  - Cost: ${result.cost:.6f}")
-                return True
-            else:
-                print("✗ Content validation failed")
-                return False
-        else:
-            print(f"✗ Fetch failed: {result.error}")
-            return False
+        all_good = True
+        for url in urls:
+            print(f"  Fetching {url}...")
+            result = await api.fetch_async(url)
             
+            if result.success:
+                print(f"  ✓ noop: {url:>25} → {result.html_char_size} chars, "
+                      f"${result.cost:.5f}, status={result.status}")
+            else:
+                print(f"  ✗ Failed: {url} - {result.error}")
+                all_good = False
+        
+        await api.close()
+        return all_good
+        
     except Exception as e:
         print(f"✗ Test failed with exception: {e}")
+        try:
+            await api.close()
+        except:
+            pass
         return False
 
 
@@ -381,7 +381,6 @@ def main():
     print("=" * 60)
     
     sync_tests = [
-        test_01_sync_fetch_noop,
         test_03_wait_options,
         test_04_timeout_handling,
         test_05_window_size,
@@ -392,6 +391,7 @@ def main():
     ]
     
     async_tests = [
+        test_01_demo_style_noop,
         test_02_async_fetch_noop,
         test_09_semaphore_strategy,
     ]

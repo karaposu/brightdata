@@ -9,7 +9,7 @@ from pathlib import Path
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+from brightdata.web_unlocker import WebUnlocker
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,7 +20,7 @@ def test_web_unlocker_basic():
     print("\n=== Web Unlocker Basic Test ===")
     
     try:
-        unlocker = BrightdataWebUnlocker()
+        unlocker = WebUnlocker()
         print("✓ Web Unlocker initialized successfully")
     except ValueError as e:
         print(f"✗ Failed to initialize: {e}")
@@ -61,7 +61,7 @@ def test_web_unlocker_async():
     
     async def run_test():
         try:
-            unlocker = BrightdataWebUnlocker()
+            unlocker = WebUnlocker()
             print("✓ Web Unlocker initialized successfully")
         except ValueError as e:
             print(f"✗ Failed to initialize: {e}")
@@ -91,7 +91,7 @@ def test_web_unlocker_error_handling():
     print("\n=== Web Unlocker Error Handling Test ===")
     
     try:
-        unlocker = BrightdataWebUnlocker()
+        unlocker = WebUnlocker()
     except ValueError:
         print("✗ Cannot test - Web Unlocker not configured")
         return False

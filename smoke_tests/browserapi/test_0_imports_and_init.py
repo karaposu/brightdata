@@ -21,7 +21,7 @@ def test_01_import_browser_api():
     """Test 01: Can import BrowserAPI class"""
     print("\n[Test 01] Importing BrowserAPI...")
     try:
-        from brightdata.browser_api import BrowserAPI
+        from brightdata.browserapi import BrowserAPI
         print("✓ Successfully imported BrowserAPI")
         return True
     except ImportError as e:
@@ -36,7 +36,7 @@ def test_02_import_dependencies():
         ("asyncio", "Async support"),
         ("logging", "Logging"),
         ("tldextract", "Domain extraction"),
-        ("brightdata.browserapi_engine", "Browser engine"),
+        ("brightdata.browserapi.browserapi_engine", "Browser engine"),
         ("brightdata.models", "Data models"),
     ]
     
@@ -61,7 +61,7 @@ def test_03_strategy_options():
     """Test 03: Test available strategy options"""
     print("\n[Test 03] Testing strategy options...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     
     strategies = ["noop", "semaphore", "pool"]
     
@@ -89,7 +89,7 @@ def test_04_init_parameters():
     """Test 04: Test initialization parameters"""
     print("\n[Test 04] Testing initialization parameters...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     
     test_cases = [
         ({"pool_size": 10}, "pool_size=10"),
@@ -122,7 +122,7 @@ def test_05_class_attributes():
     """Test 05: Check class attributes and constants"""
     print("\n[Test 05] Checking class attributes...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     
     # Check cost constants
     if hasattr(BrowserAPI, 'COST_PER_GIB'):
@@ -150,7 +150,7 @@ def test_06_method_availability():
     """Test 06: Check all expected methods are available"""
     print("\n[Test 06] Checking method availability...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     
     expected_methods = [
         ("fetch", "Sync fetch method"),
@@ -178,7 +178,7 @@ def test_07_semaphore_strategy():
     """Test 07: Test semaphore strategy initialization"""
     print("\n[Test 07] Testing semaphore strategy...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     import asyncio
     
     try:
@@ -208,7 +208,7 @@ def test_08_pool_strategy():
     """Test 08: Test pool strategy initialization"""
     print("\n[Test 08] Testing pool strategy...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     
     try:
         api = BrowserAPI(strategy="pool", pool_size=5)
@@ -244,7 +244,7 @@ def test_09_default_values():
     """Test 09: Test default configuration values"""
     print("\n[Test 09] Testing default values...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     
     try:
         api = BrowserAPI()
@@ -277,7 +277,7 @@ def test_10_usage_tracking():
     """Test 10: Test usage tracking initialization"""
     print("\n[Test 10] Testing usage tracking...")
     
-    from brightdata.browser_api import BrowserAPI
+    from brightdata.browserapi import BrowserAPI
     
     try:
         api = BrowserAPI()

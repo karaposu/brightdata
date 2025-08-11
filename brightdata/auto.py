@@ -25,11 +25,10 @@ from typing import Any, Dict, List, Union
 
 from dotenv import load_dotenv
 
-from brightdata.browser_api import BrowserAPI
-from brightdata.browser_pool import BrowserPool
-from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+from brightdata.browserapi import BrowserAPI, BrowserPool
+from brightdata.web_unlocker import WebUnlocker
 from brightdata.models import ScrapeResult
-from brightdata.registry import get_scraper_for
+from brightdata.webscraper_api.registry import get_scraper_for
 from brightdata.utils import show_scrape_results
 
 load_dotenv()

@@ -13,9 +13,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from brightdata import scrape_url, scrape_url_async
-from brightdata.ready_scrapers.amazon import AmazonScraper
-from brightdata.ready_scrapers.linkedin import LinkedInScraper
-from brightdata.registry import get_scraper_for
+from brightdata.webscraper_api.scrapers.amazon import AmazonScraper
+from brightdata.webscraper_api.scrapers.linkedin import LinkedInScraper
+from brightdata.webscraper_api.registry import get_scraper_for
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -166,7 +166,7 @@ def test_scraper_registry():
     print("\n=== Scraper Registry Test ===")
     
     # Import all scrapers to populate registry
-    from brightdata.ready_scrapers import amazon, linkedin, instagram, tiktok, x, reddit
+    from brightdata.webscraper_api.scrapers import amazon, linkedin, instagram, tiktok, x, reddit
     
     domains = ["amazon", "linkedin", "instagram", "tiktok", "x", "reddit"]
     

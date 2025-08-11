@@ -18,11 +18,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 def test_01_import_web_unlocker():
-    """Test 01: Can import BrightdataWebUnlocker class"""
-    print("\n[Test 01] Importing BrightdataWebUnlocker...")
+    """Test 01: Can import WebUnlocker class"""
+    print("\n[Test 01] Importing WebUnlocker...")
     try:
-        from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
-        print("✓ Successfully imported BrightdataWebUnlocker")
+        from brightdata.web_unlocker import WebUnlocker
+        print("✓ Successfully imported WebUnlocker")
         return True
     except ImportError as e:
         print(f"✗ Failed to import: {e}")
@@ -104,10 +104,10 @@ def test_05_init_with_env_vars():
     """Test 05: Initialize Web Unlocker with environment variables"""
     print("\n[Test 05] Initializing with environment variables...")
     
-    from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+    from brightdata.web_unlocker import WebUnlocker
     
     try:
-        unlocker = BrightdataWebUnlocker()
+        unlocker = WebUnlocker()
         print("✓ Successfully initialized with environment variables")
         print(f"  - Bearer token length: {len(unlocker.bearer) if unlocker.bearer else 0}")
         print(f"  - Zone configured: {'Yes' if unlocker.zone else 'No'}")
@@ -127,11 +127,11 @@ def test_06_init_with_parameters():
     """Test 06: Initialize Web Unlocker with direct parameters"""
     print("\n[Test 06] Initializing with direct parameters...")
     
-    from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+    from brightdata.web_unlocker import WebUnlocker
     
     try:
         # Test with dummy values
-        unlocker = BrightdataWebUnlocker(
+        unlocker = WebUnlocker(
             BRIGHTDATA_WEBUNLOCKER_BEARER="test_bearer_token",
             ZONE_STRING="test_zone"
         )
@@ -148,11 +148,11 @@ def test_07_partial_credentials():
     """Test 07: Test initialization with partial credentials"""
     print("\n[Test 07] Testing partial credentials...")
     
-    from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+    from brightdata.web_unlocker import WebUnlocker
     
     try:
         # Test with only bearer token
-        unlocker = BrightdataWebUnlocker(BRIGHTDATA_WEBUNLOCKER_BEARER="test_bearer")
+        unlocker = WebUnlocker(BRIGHTDATA_WEBUNLOCKER_BEARER="test_bearer")
         print("✗ Should have raised ValueError with only bearer token")
         return False
     except ValueError as e:
@@ -160,7 +160,7 @@ def test_07_partial_credentials():
     
     try:
         # Test with only zone
-        unlocker = BrightdataWebUnlocker(ZONE_STRING="test_zone")
+        unlocker = WebUnlocker(ZONE_STRING="test_zone")
         print("✗ Should have raised ValueError with only zone")
         return False
     except ValueError as e:
@@ -173,24 +173,24 @@ def test_08_class_attributes():
     """Test 08: Check class attributes and constants"""
     print("\n[Test 08] Checking class attributes...")
     
-    from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+    from brightdata.web_unlocker import WebUnlocker
     
     # Check class constants
-    if hasattr(BrightdataWebUnlocker, 'COST_PER_THOUSAND'):
-        print(f"✓ COST_PER_THOUSAND: ${BrightdataWebUnlocker.COST_PER_THOUSAND}")
+    if hasattr(WebUnlocker, 'COST_PER_THOUSAND'):
+        print(f"✓ COST_PER_THOUSAND: ${WebUnlocker.COST_PER_THOUSAND}")
     else:
         print("✗ Missing COST_PER_THOUSAND constant")
         return False
     
-    if hasattr(BrightdataWebUnlocker, 'COST_PER_REQUEST'):
-        print(f"✓ COST_PER_REQUEST: ${BrightdataWebUnlocker.COST_PER_REQUEST:.6f}")
+    if hasattr(WebUnlocker, 'COST_PER_REQUEST'):
+        print(f"✓ COST_PER_REQUEST: ${WebUnlocker.COST_PER_REQUEST:.6f}")
     else:
         print("✗ Missing COST_PER_REQUEST constant")
         return False
     
     # Check if cost calculation is correct
-    expected_cost = BrightdataWebUnlocker.COST_PER_THOUSAND / 1000.0
-    if abs(BrightdataWebUnlocker.COST_PER_REQUEST - expected_cost) < 0.000001:
+    expected_cost = WebUnlocker.COST_PER_THOUSAND / 1000.0
+    if abs(WebUnlocker.COST_PER_REQUEST - expected_cost) < 0.000001:
         print("✓ Cost calculation is correct")
     else:
         print("✗ Cost calculation mismatch")
@@ -203,7 +203,7 @@ def test_09_method_availability():
     """Test 09: Check all expected methods are available"""
     print("\n[Test 09] Checking method availability...")
     
-    from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+    from brightdata.web_unlocker import WebUnlocker
     
     expected_methods = [
         ("get_source", "Sync fetch method"),
@@ -218,7 +218,7 @@ def test_09_method_availability():
     
     all_good = True
     for method_name, description in expected_methods:
-        if hasattr(BrightdataWebUnlocker, method_name):
+        if hasattr(WebUnlocker, method_name):
             print(f"✓ {method_name}: {description}")
         else:
             print(f"✗ Missing method: {method_name} ({description})")
@@ -231,10 +231,10 @@ def test_10_endpoint_configuration():
     """Test 10: Test endpoint URL configuration"""
     print("\n[Test 10] Testing endpoint configuration...")
     
-    from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+    from brightdata.web_unlocker import WebUnlocker
     
     try:
-        unlocker = BrightdataWebUnlocker(
+        unlocker = WebUnlocker(
             BRIGHTDATA_WEBUNLOCKER_BEARER="test",
             ZONE_STRING="test"
         )

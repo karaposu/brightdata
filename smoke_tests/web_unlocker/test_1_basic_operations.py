@@ -13,7 +13,7 @@ from pathlib import Path
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+from brightdata.web_unlocker import WebUnlocker
 from brightdata.models import ScrapeResult
 from dotenv import load_dotenv
 
@@ -23,7 +23,7 @@ load_dotenv()
 def get_unlocker():
     """Helper to get initialized unlocker or None"""
     try:
-        return BrightdataWebUnlocker()
+        return WebUnlocker()
     except ValueError:
         print("⚠ Web Unlocker not configured - set BRIGHTDATA_WEBUNLOCKER_BEARER and BRIGHTDATA_WEBUNLOCKER_APP_ZONE_STRING")
         return None
@@ -321,7 +321,7 @@ def test_08_cost_calculation():
     result = unlocker.get_source_safe(test_url)
     
     if result.success:
-        expected_cost = BrightdataWebUnlocker.COST_PER_REQUEST
+        expected_cost = WebUnlocker.COST_PER_REQUEST
         if result.cost == expected_cost:
             print(f"✓ Success cost correct: ${result.cost:.6f}")
         else:

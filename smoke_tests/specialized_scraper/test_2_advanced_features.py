@@ -15,8 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from brightdata import scrape_url, scrape_url_async, scrape_urls, scrape_urls_async
-from brightdata.ready_scrapers.amazon import AmazonScraper
-from brightdata.ready_scrapers.linkedin import LinkedInScraper
+from brightdata.webscraper_api.scrapers.amazon import AmazonScraper
+from brightdata.webscraper_api.scrapers.linkedin import LinkedInScraper
 from brightdata.models import ScrapeResult
 from dotenv import load_dotenv
 
@@ -266,7 +266,7 @@ def test_06_scraper_polling():
         return True
     
     try:
-        from brightdata.utils.poll import poll_until_ready
+        from brightdata.webscraper_api.utils.poll import poll_until_ready
         
         scraper = AmazonScraper(bearer_token=token)
         
@@ -315,7 +315,7 @@ async def test_07_async_polling():
         return True
     
     try:
-        from brightdata.utils.async_poll import wait_ready
+        from brightdata.webscraper_api.utils.async_poll import wait_ready
         
         scraper = AmazonScraper(bearer_token=token)
         
@@ -574,6 +574,6 @@ def main():
 
 
 if __name__ == "__main__":
-    from brightdata.registry import get_scraper_for  # Import needed for test_08
+    from brightdata.webscraper_api.registry import get_scraper_for  # Import needed for test_08
     success = main()
     sys.exit(0 if success else 1)

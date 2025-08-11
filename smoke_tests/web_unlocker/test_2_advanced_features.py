@@ -15,7 +15,7 @@ from typing import List
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from brightdata.brightdata_web_unlocker import BrightdataWebUnlocker
+from brightdata.web_unlocker import WebUnlocker
 from brightdata.models import ScrapeResult
 from dotenv import load_dotenv
 
@@ -25,7 +25,7 @@ load_dotenv()
 def get_unlocker():
     """Helper to get initialized unlocker or None"""
     try:
-        return BrightdataWebUnlocker()
+        return WebUnlocker()
     except ValueError:
         print("⚠ Web Unlocker not configured - set BRIGHTDATA_WEBUNLOCKER_BEARER and BRIGHTDATA_WEBUNLOCKER_APP_ZONE_STRING")
         return None

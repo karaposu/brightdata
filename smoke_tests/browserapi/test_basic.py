@@ -11,7 +11,7 @@ from pathlib import Path
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from brightdata.browser_api import BrowserAPI
+from brightdata.browserapi import BrowserAPI
 from dotenv import load_dotenv
 
 load_dotenv()

@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from brightdata import scrape_url, trigger_scrape_url
-from brightdata.registry import get_scraper_for
+from brightdata.webscraper_api.registry import get_scraper_for
 from brightdata.models import ScrapeResult
 from dotenv import load_dotenv
 
@@ -91,7 +91,7 @@ def test_03_scraper_url_classification():
     print("\n[Test 03] Testing URL classification...")
     
     try:
-        from brightdata.ready_scrapers.amazon.scraper import AmazonScraper
+        from brightdata.webscraper_api.scrapers.amazon.scraper import AmazonScraper
         
         scraper = AmazonScraper(bearer_token="dummy_token")
         
@@ -128,7 +128,7 @@ def test_04_linkedin_url_routing():
     print("\n[Test 04] Testing LinkedIn URL routing...")
     
     try:
-        from brightdata.ready_scrapers.linkedin.scraper import LinkedInScraper
+        from brightdata.webscraper_api.scrapers.linkedin.scraper import LinkedInScraper
         
         scraper = LinkedInScraper(bearer_token="dummy_token")
         
@@ -159,8 +159,8 @@ def test_05_scraper_constants():
     print("\n[Test 05] Testing scraper constants...")
     
     try:
-        from brightdata.ready_scrapers.amazon.scraper import AmazonScraper
-        from brightdata.ready_scrapers.linkedin.scraper import LinkedInScraper
+        from brightdata.webscraper_api.scrapers.amazon.scraper import AmazonScraper
+        from brightdata.webscraper_api.scrapers.linkedin.scraper import LinkedInScraper
         
         # Check Amazon datasets
         if hasattr(AmazonScraper, '_DATASET'):
@@ -196,7 +196,7 @@ def test_06_scraper_cost_tracking():
     print("\n[Test 06] Testing cost tracking...")
     
     try:
-        from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+        from brightdata.webscraper_api.base_specialized_scraper import BrightdataBaseSpecializedScraper
         
         # Check cost constant
         if hasattr(BrightdataBaseSpecializedScraper, 'COST_PER_RECORD'):
@@ -223,7 +223,7 @@ def test_07_discovery_methods():
     print("\n[Test 07] Testing discovery methods...")
     
     try:
-        from brightdata.ready_scrapers.amazon.scraper import AmazonScraper
+        from brightdata.webscraper_api.scrapers.amazon.scraper import AmazonScraper
         
         scraper = AmazonScraper(bearer_token="dummy_token")
         
@@ -258,7 +258,7 @@ def test_08_base_scraper_endpoints():
     print("\n[Test 08] Testing base scraper endpoints...")
     
     try:
-        from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+        from brightdata.webscraper_api.base_specialized_scraper import BrightdataBaseSpecializedScraper
         
         # Check endpoint URLs
         endpoints = [

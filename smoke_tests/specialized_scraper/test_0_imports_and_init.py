@@ -21,7 +21,7 @@ def test_01_import_base_scraper():
     """Test 01: Import base scraper class"""
     print("\n[Test 01] Importing base scraper...")
     try:
-        from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
+        from brightdata.webscraper_api.base_specialized_scraper import BrightdataBaseSpecializedScraper
         print("✓ Successfully imported BrightdataBaseSpecializedScraper")
         
         # Check if it's a class
@@ -42,7 +42,7 @@ def test_02_import_registry():
     print("\n[Test 02] Importing registry system...")
     
     try:
-        from brightdata.registry import register, get_scraper_for
+        from brightdata.webscraper_api.registry import register, get_scraper_for
         print("✓ Successfully imported registry functions")
         
         # Check if they're callable
@@ -98,14 +98,14 @@ def test_04_import_scrapers():
         ("tiktok", "TikTokScraper"),
         ("x", "XScraper"),
         ("reddit", "RedditScraper"),
-        ("digikey", "DigiKeyScraper"),
+        ("digikey", "DigikeyScraper"),
         ("mouser", "MouserScraper"),
     ]
     
     all_good = True
     for module_name, class_name in scrapers:
         try:
-            module = __import__(f"brightdata.ready_scrapers.{module_name}.scraper", 
+            module = __import__(f"brightdata.webscraper_api.scrapers.{module_name}.scraper", 
                                fromlist=[class_name])
             scraper_class = getattr(module, class_name)
             print(f"✓ Imported {class_name} from {module_name}")
@@ -121,9 +121,9 @@ def test_05_scraper_inheritance():
     print("\n[Test 05] Checking scraper inheritance...")
     
     try:
-        from brightdata.base_specialized_scraper import BrightdataBaseSpecializedScraper
-        from brightdata.ready_scrapers.amazon.scraper import AmazonScraper
-        from brightdata.ready_scrapers.linkedin.scraper import LinkedInScraper
+        from brightdata.webscraper_api.base_specialized_scraper import BrightdataBaseSpecializedScraper
+        from brightdata.webscraper_api.scrapers.amazon.scraper import AmazonScraper
+        from brightdata.webscraper_api.scrapers.linkedin.scraper import LinkedInScraper
         
         # Check inheritance
         if issubclass(AmazonScraper, BrightdataBaseSpecializedScraper):
@@ -150,7 +150,7 @@ def test_06_registry_decorator():
     print("\n[Test 06] Testing registry decorator...")
     
     try:
-        from brightdata.registry import register, _COLLECT_REGISTRY
+        from brightdata.webscraper_api.registry import register, _COLLECT_REGISTRY
         
         # Create a test class
         @register("testdomain")
@@ -182,7 +182,7 @@ def test_07_scraper_initialization():
     print("\n[Test 07] Testing scraper initialization...")
     
     try:
-        from brightdata.ready_scrapers.amazon.scraper import AmazonScraper
+        from brightdata.webscraper_api.scrapers.amazon.scraper import AmazonScraper
         
         # Test with dummy token
         test_token = "test_bearer_token_12345"
@@ -215,7 +215,7 @@ def test_08_scraper_methods():
     print("\n[Test 08] Checking scraper methods...")
     
     try:
-        from brightdata.ready_scrapers.amazon.scraper import AmazonScraper
+        from brightdata.webscraper_api.scrapers.amazon.scraper import AmazonScraper
         
         required_methods = [
             "trigger",
@@ -297,7 +297,7 @@ def test_10_environment_setup():
         
         # Test initializing a scraper with env token
         try:
-            from brightdata.ready_scrapers.amazon.scraper import AmazonScraper
+            from brightdata.webscraper_api.scrapers.amazon.scraper import AmazonScraper
             scraper = AmazonScraper()  # Should use env token
             print("✓ Scraper can initialize with environment token")
             return True
