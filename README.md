@@ -1,5 +1,5 @@
 
-![BrightData Logo](https://raw.githubusercontent.com/karaposu/brightdata/refs/heads/main/brightdata.png)
+![BrightData Logo](https://raw.githubusercontent.com/karaposu/brightdata/refs/heads/main/logo.png)
 
 |             |                                                                                                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
