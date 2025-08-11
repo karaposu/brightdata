@@ -3,7 +3,7 @@
 
 |             |                                                                                                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Package** | [![PyPI Latest Release](https://img.shields.io/pypi/v/brightdata.svg)](https://pypi.org/project/brightdata/) [![PyPI Downloads](https://img.shields.io/pypi/dm/brightdata.svg?label=PyPI%20downloads)](https://pypi.org/project/brightdata/) |
+| **Package** | [![PyPI Latest Release](https://img.shields.io/pypi/v/brightdata.svg)](https://pypi.org/project/brightdata/) [![PyPI Downloads](https://static.pepy.tech/badge/brightdata)](https://pepy.tech/projects/brightdata) |
 
 ---
 
@@ -14,7 +14,7 @@ Abstract away scraping entirely and enjoy your data.
 
 Note:  This is an unofficial SDK. Please visit https://brightdata.com/products/ for official information. 
 
-[![PyPI Downloads](https://static.pepy.tech/badge/brightdata)](https://pepy.tech/projects/brightdata)
+
 
 ## Supported Services
 
