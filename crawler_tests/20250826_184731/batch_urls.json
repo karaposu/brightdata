@@ -1,0 +1,14 @@
+{
+  "test": "batch_urls",
+  "params": {
+    "type": "collect",
+    "urls": [
+      "https://httpbin.org/",
+      "https://httpbin.org/html",
+      "https://httpbin.org/forms/post"
+    ]
+  },
+  "response": {
+    "snapshot_id": "s_mespzarq2ltwluv4xe"
+  }
+}

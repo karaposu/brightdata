@@ -1,0 +1,12 @@
+{
+  "test_name": "httpbin_docs",
+  "type": "collect",
+  "snapshot_id": "s_mesnbs432610zfow44",
+  "timestamp": "2025-08-26T17:33:16.660892",
+  "description": "API documentation page",
+  "input": [
+    "https://httpbin.org"
+  ],
+  "filter": null,
+  "exclude": null
+}

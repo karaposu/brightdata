@@ -1,0 +1,10 @@
+{
+  "test_name": "example_discover",
+  "type": "discover",
+  "snapshot_id": "s_mesnbuam11x24x4h20",
+  "timestamp": "2025-08-26T17:33:19.485120",
+  "description": "Discover example.com domain",
+  "input": "https://example.com",
+  "filter": "",
+  "exclude": ""
+}

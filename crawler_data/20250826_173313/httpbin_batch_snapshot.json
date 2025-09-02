@@ -1,0 +1,14 @@
+{
+  "test_name": "httpbin_batch",
+  "type": "collect",
+  "snapshot_id": "s_mesnbt6scuw8t1dqs",
+  "timestamp": "2025-08-26T17:33:18.035627",
+  "description": "Multiple HTTPBin pages",
+  "input": [
+    "https://httpbin.org/",
+    "https://httpbin.org/html",
+    "https://httpbin.org/forms/post"
+  ],
+  "filter": null,
+  "exclude": null
+}

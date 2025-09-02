@@ -1,0 +1,52 @@
+[
+  {
+    "test": "single_url",
+    "params": {
+      "type": "collect",
+      "urls": [
+        "https://example.com"
+      ]
+    },
+    "response": {
+      "snapshot_id": "s_mespza6m1agzld9mzd"
+    }
+  },
+  {
+    "test": "batch_urls",
+    "params": {
+      "type": "collect",
+      "urls": [
+        "https://httpbin.org/",
+        "https://httpbin.org/html",
+        "https://httpbin.org/forms/post"
+      ]
+    },
+    "response": {
+      "snapshot_id": "s_mespzarq2ltwluv4xe"
+    }
+  },
+  {
+    "test": "discover_no_filter",
+    "params": {
+      "type": "discover",
+      "domain": "https://example.com",
+      "filter": "",
+      "exclude": ""
+    },
+    "response": {
+      "snapshot_id": "s_mespzb9a1z26pwhua"
+    }
+  },
+  {
+    "test": "discover_with_filter",
+    "params": {
+      "type": "discover",
+      "domain": "https://httpbin.org",
+      "filter": "/forms/*",
+      "exclude": ""
+    },
+    "response": {
+      "snapshot_id": "s_mespzbryg8yxes29"
+    }
+  }
+]

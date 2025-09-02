@@ -1,0 +1,12 @@
+{
+  "test": "discover_with_filter",
+  "params": {
+    "type": "discover",
+    "domain": "https://httpbin.org",
+    "filter": "/forms/*",
+    "exclude": ""
+  },
+  "response": {
+    "snapshot_id": "s_mespzbryg8yxes29"
+  }
+}

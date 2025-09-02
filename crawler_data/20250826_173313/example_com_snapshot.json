@@ -1,0 +1,12 @@
+{
+  "test_name": "example_com",
+  "type": "collect",
+  "snapshot_id": "s_mesnbqxfppm8hfioh",
+  "timestamp": "2025-08-26T17:33:15.128272",
+  "description": "Simple HTML page",
+  "input": [
+    "https://example.com"
+  ],
+  "filter": null,
+  "exclude": null
+}

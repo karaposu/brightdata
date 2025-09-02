@@ -1,0 +1,12 @@
+{
+  "test": "single_url",
+  "params": {
+    "type": "collect",
+    "urls": [
+      "https://example.com"
+    ]
+  },
+  "response": {
+    "snapshot_id": "s_mespza6m1agzld9mzd"
+  }
+}

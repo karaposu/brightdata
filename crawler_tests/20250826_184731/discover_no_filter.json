@@ -1,0 +1,12 @@
+{
+  "test": "discover_no_filter",
+  "params": {
+    "type": "discover",
+    "domain": "https://example.com",
+    "filter": "",
+    "exclude": ""
+  },
+  "response": {
+    "snapshot_id": "s_mespzb9a1z26pwhua"
+  }
+}

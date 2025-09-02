@@ -1,0 +1,50 @@
+[
+  {
+    "test_name": "example_com",
+    "type": "collect",
+    "snapshot_id": "s_mesnbqxfppm8hfioh",
+    "timestamp": "2025-08-26T17:33:15.128272",
+    "description": "Simple HTML page",
+    "input": [
+      "https://example.com"
+    ],
+    "filter": null,
+    "exclude": null
+  },
+  {
+    "test_name": "httpbin_docs",
+    "type": "collect",
+    "snapshot_id": "s_mesnbs432610zfow44",
+    "timestamp": "2025-08-26T17:33:16.660892",
+    "description": "API documentation page",
+    "input": [
+      "https://httpbin.org"
+    ],
+    "filter": null,
+    "exclude": null
+  },
+  {
+    "test_name": "httpbin_batch",
+    "type": "collect",
+    "snapshot_id": "s_mesnbt6scuw8t1dqs",
+    "timestamp": "2025-08-26T17:33:18.035627",
+    "description": "Multiple HTTPBin pages",
+    "input": [
+      "https://httpbin.org/",
+      "https://httpbin.org/html",
+      "https://httpbin.org/forms/post"
+    ],
+    "filter": null,
+    "exclude": null
+  },
+  {
+    "test_name": "example_discover",
+    "type": "discover",
+    "snapshot_id": "s_mesnbuam11x24x4h20",
+    "timestamp": "2025-08-26T17:33:19.485120",
+    "description": "Discover example.com domain",
+    "input": "https://example.com",
+    "filter": "",
+    "exclude": ""
+  }
+]

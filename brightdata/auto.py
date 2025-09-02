@@ -27,8 +27,9 @@ from dotenv import load_dotenv
 
 from brightdata.browserapi import BrowserAPI, BrowserPool
 from brightdata.web_unlocker import WebUnlocker
-from brightdata.models import ScrapeResult
+from brightdata.models import ScrapeResult, CrawlResult
 from brightdata.webscraper_api.registry import get_scraper_for
+from brightdata.crawlerapi import CrawlerAPI, crawl_url, crawl_domain
 from brightdata.utils import show_scrape_results
 
 load_dotenv()
@@ -351,6 +352,104 @@ def scrape_urls(
     )
 
 
+
+# ─────────────────────────────────────────────────────────────── Crawler API helpers
+def crawl_single_url(
+    url: str,
+    *,
+    bearer_token: str | None = None,
+    poll_interval: int = 10,
+    poll_timeout: int = 300,
+) -> CrawlResult:
+    """
+    Crawl a single URL using the Crawler API.
+    Returns a CrawlResult with the page content.
+    """
+    token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
+    if not token:
+        raise RuntimeError("Provide bearer_token or set BRIGHTDATA_TOKEN")
+    
+    return crawl_url(url, bearer_token=token, poll_interval=poll_interval, timeout=poll_timeout)
+
+
+def crawl_website(
+    domain: str,
+    *,
+    bearer_token: str | None = None,
+    filter_pattern: str = "",
+    exclude_pattern: str = "",
+    depth: int | None = None,
+    ignore_sitemap: bool | None = None,
+    poll_interval: int = 10,
+    poll_timeout: int = 600,
+) -> CrawlResult:
+    """
+    Crawl an entire website domain using the Crawler API.
+    Returns a CrawlResult with all discovered pages.
+    """
+    token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
+    if not token:
+        raise RuntimeError("Provide bearer_token or set BRIGHTDATA_TOKEN")
+    
+    return crawl_domain(
+        domain,
+        bearer_token=token,
+        filter_pattern=filter_pattern,
+        exclude_pattern=exclude_pattern,
+        depth=depth,
+        ignore_sitemap=ignore_sitemap,
+        poll_interval=poll_interval,
+        timeout=poll_timeout
+    )
+
+
+async def crawl_single_url_async(
+    url: str,
+    *,
+    bearer_token: str | None = None,
+    poll_interval: int = 10,
+    poll_timeout: int = 300,
+) -> CrawlResult:
+    """
+    Asynchronously crawl a single URL using the Crawler API.
+    """
+    token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
+    if not token:
+        raise RuntimeError("Provide bearer_token or set BRIGHTDATA_TOKEN")
+    
+    from brightdata.crawlerapi import acrawl_url
+    return await acrawl_url(url, bearer_token=token, poll_interval=poll_interval, timeout=poll_timeout)
+
+
+async def crawl_website_async(
+    domain: str,
+    *,
+    bearer_token: str | None = None,
+    filter_pattern: str = "",
+    exclude_pattern: str = "",
+    depth: int | None = None,
+    ignore_sitemap: bool | None = None,
+    poll_interval: int = 10,
+    poll_timeout: int = 600,
+) -> CrawlResult:
+    """
+    Asynchronously crawl an entire website domain using the Crawler API.
+    """
+    token = bearer_token or os.getenv("BRIGHTDATA_TOKEN")
+    if not token:
+        raise RuntimeError("Provide bearer_token or set BRIGHTDATA_TOKEN")
+    
+    from brightdata.crawlerapi import acrawl_domain
+    return await acrawl_domain(
+        domain,
+        bearer_token=token,
+        filter_pattern=filter_pattern,
+        exclude_pattern=exclude_pattern,
+        depth=depth,
+        ignore_sitemap=ignore_sitemap,
+        poll_interval=poll_interval,
+        timeout=poll_timeout
+    )
 
 
 if __name__ == "__main__":
