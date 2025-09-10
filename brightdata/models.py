@@ -129,7 +129,8 @@ class CrawlResult:
     crawl_params: Optional[Dict[str, Any]] = None  # All params sent (filter, exclude_filter, depth, ignore_sitemap, etc.)
     
     # Response data
-    pages: Optional[List[Dict[str, Any]]] = None  # List of page data
+    # pages: Optional[List[Dict[str, Any]]] = None  # List of page data
+    pages: List[Dict[str, Any]] = field(default_factory=list)  # Always a list, never None
     page_count: int = 0                           # Number of pages returned
     
     # Metadata
