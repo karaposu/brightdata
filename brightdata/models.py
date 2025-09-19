@@ -2,10 +2,10 @@
 
 from dataclasses import dataclass
 from dataclasses import field
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from datetime import datetime
 from typing import Dict
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Union
 from pathlib import Path            
 
 @dataclass
@@ -160,11 +160,26 @@ class CrawlResult:
                 return page
         return None
     
-    def get_markdown_content(self) -> List[str]:
-        """Get all markdown content from pages."""
+    def get_markdown_content(self, merge: bool = False) -> Union[List[str], str]:
+        """
+        Get all markdown content from pages.
+        
+        Args:
+            merge: If True, merge all markdown content into a single string.
+                   If False (default), return a list of markdown strings.
+        
+        Returns:
+            List[str] if merge=False, single merged str if merge=True
+        """
         if not self.pages:
-            return []
-        return [p.get("markdown", "") for p in self.pages if p.get("markdown")]
+            return "" if merge else []
+        
+        markdown_list = [p.get("markdown", "") for p in self.pages if p.get("markdown")]
+        
+        if merge:
+            # Join with double newlines to separate pages
+            return "\n\n".join(markdown_list)
+        return markdown_list
     
     def get_urls(self) -> List[str]:
         """Get all URLs from the crawled pages."""
